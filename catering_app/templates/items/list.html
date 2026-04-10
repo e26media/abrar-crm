@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-gray-900">Menu Items</h1>
+    <a href="/items/new" class="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700">Add New Item</a>
+</div>
+
+<!-- Category Tabs -->
+<div class="mb-6 border-b border-gray-200">
+    <nav class="-mb-px flex space-x-8" aria-label="Tabs" hx-target="#items-list" hx-swap="innerHTML">
+        <a href="#" class="{% if not active_category %}border-indigo-500 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+           hx-get="/items">
+            All
+        </a>
+        {% for cat in categories %}
+        <a href="#" class="{% if active_category == cat.name %}border-indigo-500 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+           hx-get="/items?category={{ cat.name }}" hx-push-url="true">
+            {{ cat.name }}
+        </a>
+        {% endfor %}
+    </nav>
+</div>
+
+<div id="items-list" class="bg-white shadow overflow-hidden sm:rounded-md">
+    {% include "items/_items_list_partial.html" %}
+</div>
+
+{% endblock %}

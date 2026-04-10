@@ -1,0 +1,28 @@
+{% set f = item if item.name else food %}
+{% set c = category %}
+<li class="px-4 py-4 sm:px-6 hover:bg-gray-50 transition-colors group" id="item-row-{{ f.id }}">
+    <div class="flex items-center justify-between">
+        <div class="flex flex-col">
+            <p class="text-sm font-medium text-indigo-600 truncate cursor-pointer hover:underline"
+               hx-get="/items/{{ f.id }}/edit" hx-target="closest li" hx-swap="outerHTML">
+                {{ f.name }}
+            </p>
+            <p class="text-xs text-gray-500 group-hover:text-gray-700 mt-1">
+                Category: 
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 {% if c.name.lower() == 'non-veg' %}bg-red-100 text-red-800{% elif c.name.lower() == 'veg' %}bg-green-100 text-green-800{% endif %}">
+                    {{ c.name }}
+                </span>
+            </p>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="text-right">
+                <p class="text-sm text-gray-900 font-semibold">₹{{ f.base_price_per_unit }}</p>
+                <p class="text-xs text-gray-500">per {{ f.unit.value }}</p>
+            </div>
+            <!-- Delete Button -->
+            <button hx-delete="/items/{{ f.id }}" hx-confirm="Are you sure you want to remove {{ f.name }}?" hx-target="closest li" hx-swap="outerHTML" class="text-red-500 hover:text-red-700 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </button>
+        </div>
+    </div>
+</li>

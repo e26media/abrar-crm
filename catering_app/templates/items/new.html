@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Add New Menu Item</h1>
+        <a href="/items" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">&larr; Back to Items</a>
+    </div>
+
+    <div class="bg-white shadow sm:rounded-lg overflow-hidden">
+        <form action="/items" method="POST" class="p-6 space-y-6 flex flex-col">
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700">Item Name</label>
+                <input type="text" name="name" id="name" required class="mt-1 border p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label for="category_id" class="block text-sm font-medium text-gray-700">Category</label>
+                    <select id="category_id" name="category_id" required class="mt-1 border p-2 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="unit" class="block text-sm font-medium text-gray-700">Unit</label>
+                    <select id="unit" name="unit" required class="mt-1 border p-2 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="piece">Piece</option>
+                        <option value="kg">Kg</option>
+                        <option value="litre">Litre</option>
+                        <option value="serving">Serving</option>
+                        <option value="glass">Glass</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label for="base_price_per_unit" class="block text-sm font-medium text-gray-700">Base Price (₹)</label>
+                <input type="number" step="0.01" name="base_price_per_unit" id="base_price_per_unit" required class="mt-1 border p-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="e.g. 50.00">
+            </div>
+
+            <div class="pt-4 border-t border-gray-200">
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Create Item
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-gray-900">Orders</h1>
+    <a href="/orders/new" class="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700">New Order</a>
+</div>
+
+<div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <ul role="list" class="divide-y divide-gray-200">
+        {% for order in orders %}
+        <li class="hover:bg-gray-50 transition-colors">
+            <a href="/orders/{{ order.id }}" class="block px-4 py-4 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <p class="text-sm font-medium text-indigo-600 truncate">{{ order.customer_name }}</p>
+                        <p class="ml-2 flex-shrink-0 flex items-center text-xs text-gray-500">
+                            {{ order.customer_phone }}
+                        </p>
+                    </div>
+                    <div class="ml-2 flex-shrink-0 flex">
+                        {% if order.status.value == 'draft' %}
+                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 border">Draft</p>
+                        {% elif order.status.value == 'confirmed' %}
+                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 border">Confirmed</p>
+                        {% elif order.status.value == 'billed' %}
+                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 border">Billed</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mt-2 sm:flex sm:justify-between">
+                    <div class="sm:flex">
+                        <p class="flex items-center text-sm text-gray-500">
+                            <span class="font-medium mr-1 text-gray-700">{{ order.event_name }}</span> 
+                            ({{ order.num_plates }} plates)
+                        </p>
+                    </div>
+                    <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                        <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                        </svg>
+                        <p>
+                            {{ order.event_date.strftime('%B %d, %Y') }}
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </li>
+        {% else %}
+        <li class="px-4 py-8 text-center text-gray-500">
+            No orders found.
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

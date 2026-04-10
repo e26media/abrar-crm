@@ -1,0 +1,11 @@
+<ul role="list" class="divide-y divide-gray-200">
+    {% for item in items_data %}
+        {% set food = item.FoodItem %}
+        {% set category = item.Category %}
+        {% include "items/_item_row.html" %}
+    {% else %}
+    <li class="px-4 py-8 text-center text-gray-500">
+        No menu items found for this category.
+    </li>
+    {% endfor %}
+</ul>

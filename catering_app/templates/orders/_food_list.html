@@ -1,0 +1,18 @@
+<ul id="food-list-inner" class="divide-y divide-gray-200">
+    {% for food in foods %}
+    <li class="py-3 flex justify-between items-center group">
+        <div>
+            <span class="block text-sm font-medium text-gray-900">{{ food.name }}</span>
+            <span class="block text-xs text-gray-500">{{ food.category.name }} | ₹{{ food.base_price_per_unit }}/{{ food.unit.value }}</span>
+        </div>
+        <form hx-post="/orders/{{ order.id if order.id else id }}/items" hx-target="#order-summary" hx-swap="outerHTML" class="m-0">
+            <input type="hidden" name="food_item_id" value="{{ food.id }}">
+            <button type="submit" class="px-2 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 text-xs font-semibold rounded">
+                Add
+            </button>
+        </form>
+    </li>
+    {% else %}
+    <li class="py-3 text-sm text-gray-500 text-center">No matching items found.</li>
+    {% endfor %}
+</ul>

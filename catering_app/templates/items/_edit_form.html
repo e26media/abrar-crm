@@ -1,0 +1,37 @@
+<li class="px-4 py-4 sm:px-6 bg-yellow-50" id="item-row-{{ item.id }}">
+    <form hx-put="/items/{{ item.id }}" hx-target="closest li" hx-swap="outerHTML" class="flex flex-col gap-4 w-full">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-700">Name</label>
+                <input type="text" name="name" value="{{ item.name }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700">Category</label>
+                <select name="category_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if cat.id == item.category_id %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700">Unit</label>
+                <select name="unit" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+                    <option value="piece" {% if item.unit.value == 'piece' %}selected{% endif %}>piece</option>
+                    <option value="kg" {% if item.unit.value == 'kg' %}selected{% endif %}>kg</option>
+                    <option value="litre" {% if item.unit.value == 'litre' %}selected{% endif %}>litre</option>
+                    <option value="serving" {% if item.unit.value == 'serving' %}selected{% endif %}>serving</option>
+                    <option value="glass" {% if item.unit.value == 'glass' %}selected{% endif %}>glass</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700">Base Price (₹)</label>
+                <input type="number" step="0.01" name="base_price_per_unit" value="{{ item.base_price_per_unit }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+            </div>
+        </div>
+        <div class="flex justify-end gap-2">
+            <!-- Cancel basically means refetch the item row -->
+            <button type="button" hx-get="/items" hx-target="#items-list" hx-swap="innerHTML" class="px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+            <button type="submit" class="px-3 py-1.5 border border-transparent shadow-sm text-sm font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700">Save</button>
+        </div>
+    </form>
+</li>

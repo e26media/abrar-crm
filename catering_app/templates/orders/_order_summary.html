@@ -1,0 +1,134 @@
+<div id="order-summary" class="bg-white shadow sm:rounded-lg overflow-hidden">
+    <div class="px-4 py-5 sm:px-6 bg-gray-50 flex justify-between items-center border-b">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">Order Menu ({{ order.num_plates }} Plates)</h3>
+        <span class="htmx-indicator hidden px-2">
+            <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        </span>
+    </div>
+
+    <!-- Items Table -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                    <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty/Plate</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Qty</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Line Total</th>
+                    {% if order.status.value != 'billed' %}
+                    <th scope="col" class="relative px-4 py-3"><span class="sr-only">Delete</span></th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200 border-b">
+                {% for item in calc_total.line_items %}
+                <tr>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{{ item.food_item_name }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
+                        {% if order.status.value != 'billed' %}
+                        <div class="flex items-center justify-center gap-2">
+                            <button hx-post="/orders/{{ order.id }}/items/{{ item.order_item_id }}/decrement" 
+                                    hx-target="#order-summary" 
+                                    hx-swap="outerHTML"
+                                    {% if item.quantity_per_plate <= 1 %}disabled{% endif %}
+                                    class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed">
+                                -
+                            </button>
+                            <span class="w-8 text-center font-semibold text-gray-900">{{ item.quantity_per_plate | int }}</span>
+                            <button hx-post="/orders/{{ order.id }}/items/{{ item.order_item_id }}/increment" 
+                                    hx-target="#order-summary" 
+                                    hx-swap="outerHTML"
+                                    class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
+                                +
+                            </button>
+                        </div>
+                        {% else %}
+                        {{ item.quantity_per_plate | int }}
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">{{ item.total_quantity | int }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">₹{{ '%.2f' % item.unit_price }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">₹{{ '%.2f' % item.line_total }}</td>
+                    
+                    {% if order.status.value != 'billed' %}
+                    <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button hx-delete="/orders/{{ order.id }}/items/{{ item.order_item_id }}" 
+                                hx-confirm="Remove this item?" 
+                                hx-target="#order-summary"
+                                hx-swap="outerHTML"
+                                class="text-red-600 hover:text-red-900">
+                            Remove
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="px-4 py-16 text-center text-sm text-gray-500">
+                        No food items added yet. Browse and add items from the menu.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            
+            {% if calc_total.line_items %}
+            <tfoot class="bg-gray-50 border-t-2 border-gray-100">
+                {% if calc_total.tax_amount > 0 %}
+                <tr>
+                    <th colspan="4" class="px-4 py-3 text-right text-sm font-normal text-gray-500">Subtotal:</th>
+                    <td class="px-4 py-3 text-right text-sm text-gray-900">₹{{ '%.2f' % calc_total.subtotal }}</td>
+                    {% if order.status.value != 'billed' %}<td></td>{% endif %}
+                </tr>
+                <tr>
+                    <th colspan="4" class="px-4 py-3 text-right text-sm font-normal text-gray-500">Tax (GST):</th>
+                    <td class="px-4 py-3 text-right text-sm text-gray-900">₹{{ '%.2f' % calc_total.tax_amount }}</td>
+                    {% if order.status.value != 'billed' %}<td></td>{% endif %}
+                </tr>
+                {% endif %}
+                <tr>
+                    <th colspan="4" class="px-4 py-2 text-right text-sm font-normal text-gray-500 italic">Price Per Plate (Incl. Tax):</th>
+                    <td class="px-4 py-2 text-right text-sm text-gray-700 italic">₹{{ '%.2f' % calc_total.price_per_plate }}</td>
+                    {% if order.status.value != 'billed' %}<td></td>{% endif %}
+                </tr>
+                <tr>
+                    <th colspan="4" class="px-4 py-4 text-right text-lg font-bold text-gray-900">Grand Total:</th>
+                    <td class="px-4 py-4 text-right text-lg font-bold text-indigo-600">₹{{ '%.2f' % calc_total.grand_total }}</td>
+                    {% if order.status.value != 'billed' %}<td></td>{% endif %}
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    <!-- Action Buttons -->
+    {% if calc_total.line_items and order.status.value != 'billed' %}
+    <div class="px-4 py-5 sm:px-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3" id="order-actions">
+        
+        {% if order.status.value == 'draft' %}
+        <button hx-post="/orders/{{ order.id }}/confirm" 
+                hx-target="#order-summary" 
+                hx-swap="outerHTML"
+                class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all uppercase tracking-wide">
+            Confirm Order
+        </button>
+        {% elif order.status.value == 'confirmed' %}
+        <button hx-post="/bills/{{ order.id }}" hx-target="#order-actions" hx-swap="outerHTML" class="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-green-700 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+            Generate Bill & PDF
+        </button>
+        {% endif %}
+        
+    </div>
+    {% endif %}
+    
+    {% if order.status.value == 'billed' %}
+    <div class="px-4 py-5 sm:px-6 border-t border-gray-200 bg-green-50 flex justify-between items-center">
+        <p class="text-sm text-green-800 font-semibold mb-0 pb-0 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Order Billed!
+        </p>
+        <a href="/bills/{{ order.bill.id if order.bill else 'none' }}/pdf" target="_blank" class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-indigo-700 transition-all">Download PDF Invoice</a>
+    </div>
+    {% endif %}
+</div>
