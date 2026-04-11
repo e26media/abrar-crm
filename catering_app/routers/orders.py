@@ -13,6 +13,50 @@ from catering_app.services.pricing import calculate_order_total
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
+async def _apply_overrides(id: int, request: Request, db: AsyncSession):
+    form_data = await request.form()
+    
+    result = await db.execute(
+        select(Order).options(selectinload(Order.items)).where(Order.id == id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        return
+
+    # 1. Update Order-level manual overrides
+    m_total = form_data.get("manual_total")
+    m_plate = form_data.get("manual_plate_rate")
+    
+    if m_total is not None and m_total != "":
+        order.manual_total = float(m_total)
+    if m_plate is not None and m_plate != "":
+        order.manual_price_per_plate = float(m_plate)
+
+    # 2. Update Item-level manual overrides
+    # Pre-fetch items into a map for efficiency
+    item_map = {item.id: item for item in order.items}
+    
+    for key, value in form_data.items():
+        if value == "": continue
+        
+        if key.startswith("unit_price_"):
+            try:
+                item_id = int(key.replace("unit_price_", ""))
+                if item_id in item_map:
+                    item_map[item_id].unit_price = float(value)
+            except ValueError: pass
+        elif key.startswith("total_qty_"):
+            try:
+                item_id = int(key.replace("total_qty_", ""))
+                if item_id in item_map:
+                    target_total = float(value)
+                    # We store quantity_per_plate. total = qpp * num_plates
+                    item_map[item_id].quantity_per_plate = target_total / order.num_plates if order.num_plates > 0 else target_total
+            except ValueError: pass
+            
+    await db.commit()
+    return order
+
 @router.get("/", response_class=HTMLResponse)
 async def list_orders(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Order).order_by(Order.created_at.desc()))
@@ -29,7 +73,7 @@ async def create_order(
     customer_phone: Optional[str] = Form(None),
     event_name: str = Form(...),
     event_date: str = Form(...),
-    num_plates: int = Form(...),
+    num_plates: Optional[int] = Form(1),
     db: AsyncSession = Depends(get_db)
 ):
     ev_date = datetime.strptime(event_date, "%Y-%m-%d")
@@ -56,6 +100,10 @@ async def order_detail(request: Request, id: int, db: AsyncSession = Depends(get
     )
     order = result.scalar_one_or_none()
     
+    if not order:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Order not found")
+        
     calc_total = await calculate_order_total(db, id, order.num_plates)
     
     # No longer fetching all foods initially to avoid 'previews'
@@ -114,6 +162,8 @@ async def add_item_to_order(
     id: int,
     food_item_id: int = Form(...),
     quantity_per_plate: float = Form(default=1.0),
+    manual_total: Optional[float] = Form(None),
+    manual_plate_rate: Optional[float] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     # Check if item already exists in this order
@@ -135,14 +185,10 @@ async def add_item_to_order(
         
     await db.commit()
     
+    # Apply any other overrides from the form
+    order = await _apply_overrides(id, request, db)
+    
     # Recalculate totals and return the updated summary partial
-    result = await db.execute(
-        select(Order).options(
-            selectinload(Order.items).selectinload(OrderItem.food_item), 
-            selectinload(Order.bill)
-        ).where(Order.id == id)
-    )
-    order = result.scalar_one()
     calc_total = await calculate_order_total(db, id, order.num_plates)
     
     return templates.TemplateResponse(
@@ -152,17 +198,20 @@ async def add_item_to_order(
 
 # htmx-partial
 @router.delete("/{id}/items/{item_id}", response_class=HTMLResponse)
-async def remove_item_from_order(request: Request, id: int, item_id: int, db: AsyncSession = Depends(get_db)):
+async def remove_item_from_order(
+    request: Request, 
+    id: int, 
+    item_id: int, 
+    manual_total: Optional[float] = Form(None),
+    manual_plate_rate: Optional[float] = Form(None),
+    db: AsyncSession = Depends(get_db)
+):
     await db.execute(delete(OrderItem).where(OrderItem.id == item_id, OrderItem.order_id == id))
     await db.commit()
     
-    result = await db.execute(
-        select(Order).options(
-            selectinload(Order.items).selectinload(OrderItem.food_item), 
-            selectinload(Order.bill)
-        ).where(Order.id == id)
-    )
-    order = result.scalar_one()
+    # Apply any other overrides from the form
+    order = await _apply_overrides(id, request, db)
+    
     calc_total = await calculate_order_total(db, id, order.num_plates)
     
     return templates.TemplateResponse(
@@ -183,6 +232,8 @@ async def update_plates(request: Request, id: int, num_plates: int = Form(...), 
     if order:
         order.num_plates = num_plates
         await db.commit()
+        # Apply any other overrides from the form
+        order = await _apply_overrides(id, request, db)
         
     calc_total = await calculate_order_total(db, id, num_plates)
     
@@ -193,7 +244,13 @@ async def update_plates(request: Request, id: int, num_plates: int = Form(...), 
 
 # htmx-partial
 @router.post("/{id}/confirm", response_class=HTMLResponse)
-async def confirm_order(request: Request, id: int, db: AsyncSession = Depends(get_db)):
+async def confirm_order(
+    request: Request, 
+    id: int, 
+    manual_total: Optional[float] = Form(None),
+    manual_plate_rate: Optional[float] = Form(None),
+    db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(
         select(Order).options(
             selectinload(Order.items).selectinload(OrderItem.food_item), 
@@ -204,6 +261,8 @@ async def confirm_order(request: Request, id: int, db: AsyncSession = Depends(ge
     if order:
         order.status = OrderStatusEnum.confirmed
         await db.commit()
+        # Apply any other overrides from the form
+        order = await _apply_overrides(id, request, db)
         
     calc_total = await calculate_order_total(db, id, order.num_plates)
     
@@ -214,7 +273,14 @@ async def confirm_order(request: Request, id: int, db: AsyncSession = Depends(ge
 
 # htmx-partial
 @router.post("/{id}/items/{item_id}/increment", response_class=HTMLResponse)
-async def increment_item_quantity(request: Request, id: int, item_id: int, db: AsyncSession = Depends(get_db)):
+async def increment_item_quantity(
+    request: Request, 
+    id: int, 
+    item_id: int, 
+    manual_total: Optional[float] = Form(None),
+    manual_plate_rate: Optional[float] = Form(None),
+    db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(select(OrderItem).where(OrderItem.id == item_id, OrderItem.order_id == id))
     item = result.scalar_one_or_none()
     if item:
@@ -227,13 +293,21 @@ async def increment_item_quantity(request: Request, id: int, item_id: int, db: A
             selectinload(Order.bill)
         ).where(Order.id == id)
     )
-    order = result.scalar_one()
+    # Apply any other overrides from the form
+    order = await _apply_overrides(id, request, db)
     calc_total = await calculate_order_total(db, id, order.num_plates)
     return templates.TemplateResponse(request=request, name="orders/_order_summary.html", context={"request": request, "order": order, "calc_total": calc_total})
 
 # htmx-partial
 @router.post("/{id}/items/{item_id}/decrement", response_class=HTMLResponse)
-async def decrement_item_quantity(request: Request, id: int, item_id: int, db: AsyncSession = Depends(get_db)):
+async def decrement_item_quantity(
+    request: Request, 
+    id: int, 
+    item_id: int, 
+    manual_total: Optional[float] = Form(None),
+    manual_plate_rate: Optional[float] = Form(None),
+    db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(select(OrderItem).where(OrderItem.id == item_id, OrderItem.order_id == id))
     item = result.scalar_one_or_none()
     if item and item.quantity_per_plate > 1:
@@ -247,5 +321,7 @@ async def decrement_item_quantity(request: Request, id: int, item_id: int, db: A
         ).where(Order.id == id)
     )
     order = result.scalar_one()
+    # Apply any other overrides from the form
+    order = await _apply_overrides(id, request, db)
     calc_total = await calculate_order_total(db, id, order.num_plates)
     return templates.TemplateResponse(request=request, name="orders/_order_summary.html", context={"request": request, "order": order, "calc_total": calc_total})

@@ -1,16 +1,18 @@
 <ul id="food-list-inner" class="divide-y divide-gray-200">
     {% for food in foods %}
-    <li class="py-3 flex justify-between items-center group">
+    <li class="py-3 px-2 flex justify-between items-center group hover:bg-indigo-50 cursor-pointer transition-colors rounded-md"
+        hx-post="/orders/{{ order.id if order.id else id }}/items" 
+        hx-vals='{"food_item_id": "{{ food.id }}"}'
+        hx-include="[name='manual_total'], [name='manual_plate_rate']"
+        hx-target="#order-summary" 
+        hx-swap="outerHTML">
         <div>
-            <span class="block text-sm font-medium text-gray-900">{{ food.name }}</span>
+            <span class="block text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{{ food.name }}</span>
             <span class="block text-xs text-gray-500">{{ food.category.name }} | ₹{{ food.base_price_per_unit }}/{{ food.unit.value }}</span>
         </div>
-        <form hx-post="/orders/{{ order.id if order.id else id }}/items" hx-target="#order-summary" hx-swap="outerHTML" class="m-0">
-            <input type="hidden" name="food_item_id" value="{{ food.id }}">
-            <button type="submit" class="px-2 py-1 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 text-xs font-semibold rounded">
-                Add
-            </button>
-        </form>
+        <div class="px-2 py-1 bg-indigo-100 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white text-xs font-bold rounded transition-all">
+            Add
+        </div>
     </li>
     {% else %}
     <li class="py-1 text-sm text-gray-500 text-center italic">

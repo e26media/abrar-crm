@@ -72,6 +72,8 @@ class Order(Base):
     customer_phone = Column(String(100), nullable=True)
     num_plates = Column(Integer, nullable=False, default=1)
     status = Column(Enum(OrderStatusEnum), default=OrderStatusEnum.draft)
+    manual_total = Column(Float, nullable=True)
+    manual_price_per_plate = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
