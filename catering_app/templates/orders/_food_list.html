@@ -13,6 +13,12 @@
         </form>
     </li>
     {% else %}
-    <li class="py-3 text-sm text-gray-500 text-center">No matching items found.</li>
+    <li class="py-1 text-sm text-gray-500 text-center italic">
+        {% if request.query_params.get('q') %}
+            No matching items found.
+        {% else %}
+            Start typing to search menu items...
+        {% endif %}
+    </li>
     {% endfor %}
 </ul>

@@ -14,8 +14,8 @@
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                     <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty/Plate</th>
                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Qty</th>
-                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Line Total</th>
+                    <th scope="col" class="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                    <th scope="col" class="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Line Total</th>
                     {% if order.status.value != 'billed' %}
                     <th scope="col" class="relative px-4 py-3"><span class="sr-only">Delete</span></th>
                     {% endif %}
@@ -47,9 +47,9 @@
                         {{ item.quantity_per_plate | int }}
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">{{ item.total_quantity | int }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">₹{{ '%.2f' % item.unit_price }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">₹{{ '%.2f' % item.line_total }}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-500 text-right"><input type="number" step="1" min="0" class="editable-total-qty w-20 text-right bg-gray-100 border border-gray-300 rounded px-2 py-1" value="{{ item.total_quantity | int }}" /></td>
+                    <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500 text-right unit-price">₹{{ '%.2f' % item.unit_price }}</td>
+                    <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-900 text-right line-total">₹{{ '%.2f' % item.line_total }}</td>
                     
                     {% if order.status.value != 'billed' %}
                     <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
@@ -87,18 +87,74 @@
                 </tr>
                 {% endif %}
                 <tr>
-                    <th colspan="4" class="px-4 py-2 text-right text-sm font-normal text-gray-500 italic">Price Per Plate (Incl. Tax):</th>
-                    <td class="px-4 py-2 text-right text-sm text-gray-700 italic">₹{{ '%.2f' % calc_total.price_per_plate }}</td>
-                    {% if order.status.value != 'billed' %}<td></td>{% endif %}
-                </tr>
-                <tr>
-                    <th colspan="4" class="px-4 py-4 text-right text-lg font-bold text-gray-900">Grand Total:</th>
-                    <td class="px-4 py-4 text-right text-lg font-bold text-indigo-600">₹{{ '%.2f' % calc_total.grand_total }}</td>
-                    {% if order.status.value != 'billed' %}<td></td>{% endif %}
-                </tr>
+    <th colspan="4" class="px-4 py-2 text-right text-sm font-normal text-gray-500 italic">Price Per Plate (Incl. Tax):</th>
+    <td class="px-4 py-2 text-right text-sm text-gray-700 italic">
+        <input type="number" step="1" min="0" class="editable-price-per-plate w-28 text-right bg-gray-50 border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ '%.2f' % calc_total.price_per_plate }}" data-original="{{ '%.2f' % calc_total.price_per_plate }}" />
+    </td>
+    {% if order.status.value != 'billed' %}<td></td>{% endif %}
+</tr>
+<tr>
+    <th colspan="4" class="px-4 py-4 text-right text-lg font-bold text-gray-900">Grand Total:</th>
+    <td class="px-4 py-4 text-right text-lg font-bold text-indigo-600">
+        <input type="number" step="1" class="editable-grand-total w-32 text-right bg-gray-100 border border-gray-300 rounded-md px-2 py-1 font-bold text-indigo-600 cursor-not-allowed" value="{{ '%.2f' % calc_total.grand_total }}" data-original="{{ '%.2f' % calc_total.grand_total }}" readonly />
+    </td>
+    {% if order.status.value != 'billed' %}<td></td>{% endif %}
+</tr>
+<!-- script moved below table -->
             </tfoot>
             {% endif %}
         </table>
+<script>
+    // Recalculate line totals and grand total when total qty or price per plate changes
+    function recalcGrandTotal() {
+        let sum = 0;
+        document.querySelectorAll('.line-total').forEach(function(el){
+            const val = parseFloat(el.textContent.replace('₹','')) || 0;
+            sum += val;
+        });
+        const grandInput = document.querySelector('.editable-grand-total');
+        if (grandInput) {
+            grandInput.value = sum.toFixed(2);
+        }
+        // Update price per plate based on grand total / number of plates
+        const pricePerPlateInput = document.querySelector('.editable-price-per-plate');
+        if (pricePerPlateInput) {
+            const numPlates = {{ order.num_plates }};
+            const newPrice = (sum / numPlates).toFixed(2);
+            pricePerPlateInput.value = newPrice;
+        }
+    }
+
+    // When total quantity changes
+    document.addEventListener('input', function(e){
+        if (e.target && e.target.classList.contains('editable-total-qty')) {
+            let qty = parseFloat(e.target.value) || 0;
+            if (qty < 0) qty = 0; // prevent negative
+            e.target.value = qty; // enforce non-negative in UI
+            const row = e.target.closest('tr');
+            const unitPriceCell = row.querySelector('.unit-price');
+            const lineTotalCell = row.querySelector('.line-total');
+            if (unitPriceCell && lineTotalCell) {
+                const unitPrice = parseFloat(unitPriceCell.textContent.replace('₹','')) || 0;
+                const newLineTotal = Math.max(0, unitPrice * qty).toFixed(2);
+                lineTotalCell.textContent = '₹' + newLineTotal;
+                recalcGrandTotal();
+            }
+        }
+        // When price per plate changes
+        if (e.target && e.target.classList.contains('editable-price-per-plate')) {
+            let pricePerPlate = parseFloat(e.target.value) || 0;
+            if (pricePerPlate < 0) pricePerPlate = 0; // prevent negative
+            e.target.value = pricePerPlate; // enforce UI
+            const numPlates = {{ order.num_plates }};
+            const newGrand = (pricePerPlate * numPlates).toFixed(2);
+            const grandInput = document.querySelector('.editable-grand-total');
+            if (grandInput) {
+                grandInput.value = newGrand;
+            }
+        }
+    });
+</script>
     </div>
 
     <!-- Action Buttons -->

@@ -35,8 +35,8 @@ class FoodItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    unit = Column(Enum(UnitEnum), nullable=False)
-    base_price_per_unit = Column(Float, nullable=False)
+    unit = Column(Enum(UnitEnum), nullable=True, default=UnitEnum.serving)
+    base_price_per_unit = Column(Float, nullable=True, default=0.0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

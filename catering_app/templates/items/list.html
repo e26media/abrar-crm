@@ -6,20 +6,43 @@
     <a href="/items/new" class="px-4 py-2 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700">Add New Item</a>
 </div>
 
-<!-- Category Tabs -->
-<div class="mb-6 border-b border-gray-200">
-    <nav class="-mb-px flex space-x-8" aria-label="Tabs" hx-target="#items-list" hx-swap="innerHTML">
-        <a href="#" class="{% if not active_category %}border-indigo-500 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
-           hx-get="/items">
-            All
+<!-- Category Filter -->
+<div class="mb-8 flex flex-col sm:flex-row items-center gap-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+    <div class="flex items-center gap-3">
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Navigation</span>
+        <a href="/items" 
+           class="{% if not active_category %}bg-indigo-600 text-white shadow-md shadow-indigo-200 ring-1 ring-indigo-600{% else %}bg-white text-gray-700 border-gray-200 hover:border-indigo-300 hover:text-indigo-600{% endif %} inline-flex items-center px-5 py-2.5 rounded-lg border text-sm font-bold transition-all duration-200"
+           hx-get="/items" 
+           hx-target="#items-list" 
+           hx-push-url="true"
+           onclick="document.getElementById('category-select').value=''">
+           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            All Items
         </a>
-        {% for cat in categories %}
-        <a href="#" class="{% if active_category == cat.name %}border-indigo-500 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
-           hx-get="/items?category={{ cat.name }}" hx-push-url="true">
-            {{ cat.name }}
-        </a>
-        {% endfor %}
-    </nav>
+    </div>
+    
+    <div class="hidden sm:block h-8 w-px bg-gray-200"></div>
+
+    <div class="flex items-center gap-3 w-full sm:w-auto">
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Category Quick Select</span>
+        <div class="relative w-full sm:w-64 group">
+            <select name="category" 
+                    id="category-select"
+                    class="block w-full pl-4 pr-10 py-2.5 text-sm border-gray-200 group-hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg border bg-white shadow-sm font-semibold transition-all appearance-none cursor-pointer"
+                    hx-get="/items" 
+                    hx-target="#items-list" 
+                    hx-trigger="change"
+                    hx-push-url="true">
+                <option value="">-- View Categories --</option>
+                {% for cat in categories %}
+                <option value="{{ cat.name }}" {% if active_category == cat.name %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400 group-hover:text-indigo-500">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="items-list" class="bg-white shadow overflow-hidden sm:rounded-md">

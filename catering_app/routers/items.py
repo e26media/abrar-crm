@@ -42,8 +42,8 @@ async def new_item_form(request: Request, db: AsyncSession = Depends(get_db)):
 async def create_item(
     name: str = Form(...),
     category_id: int = Form(...),
-    unit: str = Form(...),
-    base_price_per_unit: float = Form(...),
+    unit: str = Form("serving"),
+    base_price_per_unit: float = Form(0.0),
     db: AsyncSession = Depends(get_db)
 ):
     new_item = FoodItem(
@@ -71,8 +71,8 @@ async def update_item(
     id: int,
     name: str = Form(...),
     category_id: int = Form(...),
-    unit: str = Form(...),
-    base_price_per_unit: float = Form(...),
+    unit: str = Form("serving"),
+    base_price_per_unit: float = Form(0.0),
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(select(FoodItem).where(FoodItem.id == id))

@@ -58,10 +58,8 @@ async def order_detail(request: Request, id: int, db: AsyncSession = Depends(get
     
     calc_total = await calculate_order_total(db, id, order.num_plates)
     
-    all_foods_result = await db.execute(
-        select(FoodItem).options(selectinload(FoodItem.category)).where(FoodItem.is_active == True)
-    )
-    foods = all_foods_result.scalars().all()
+    # No longer fetching all foods initially to avoid 'previews'
+    foods = []
     
     return templates.TemplateResponse(
         request=request, name="orders/detail.html", 
@@ -71,12 +69,13 @@ async def order_detail(request: Request, id: int, db: AsyncSession = Depends(get
 # htmx-partial
 @router.get("/{id}/search_menu", response_class=HTMLResponse)
 async def search_menu(request: Request, id: int, q: str = "", db: AsyncSession = Depends(get_db)):
-    query = select(FoodItem).options(selectinload(FoodItem.category)).where(FoodItem.is_active == True)
-    if q:
+    if not q:
+        foods = []
+    else:
+        query = select(FoodItem).options(selectinload(FoodItem.category)).where(FoodItem.is_active == True)
         query = query.where(FoodItem.name.ilike(f"%{q}%"))
-    
-    result = await db.execute(query)
-    foods = result.scalars().all()
+        result = await db.execute(query)
+        foods = result.scalars().all()
     
     return templates.TemplateResponse(
         request=request, name="orders/_food_list.html",
