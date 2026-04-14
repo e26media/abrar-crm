@@ -16,7 +16,7 @@ async def generate_bill_pdf(session: AsyncSession, bill_id: int) -> str:
     result = await session.execute(
         select(Bill)
         .options(
-            selectinload(Bill.order).selectinload(Order.items).selectinload(OrderItem.food_item).selectinload(FoodItem.category)
+            selectinload(Bill.order).selectinload(Order.items).selectinload(OrderItem.food_item)
         )
         .where(Bill.id == bill_id)
     )
@@ -25,7 +25,6 @@ async def generate_bill_pdf(session: AsyncSession, bill_id: int) -> str:
     if not bill:
         raise ValueError(f"Bill {bill_id} not found")
 
-    # Fetch order items separately since earlier query might be tricky
     order = bill.order
     items_result = await session.execute(
         select(OrderItem)
@@ -42,122 +41,133 @@ async def generate_bill_pdf(session: AsyncSession, bill_id: int) -> str:
     pdf_path = os.path.join(bills_dir, pdf_filename)
 
     # ------------------ PDF Generation (ReportLab) ------------------
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=18)
+    from reportlab.lib.units import inch
+    doc = SimpleDocTemplate(pdf_path, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     elements = []
 
     styles = getSampleStyleSheet()
     
-    # Custom Styles
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
+    # Custom Styles based on the image
+    brand_style = ParagraphStyle(
+        'BrandStyle',
+        parent=styles['Normal'],
+        fontSize=36,
+        leading=40,
         alignment=1, # Center
-        spaceAfter=15,
-        textColor=colors.HexColor('#2c3e50')
+        fontName='Helvetica-Bold',
+        spaceAfter=2
     )
     
-    header_style = ParagraphStyle(
-        'HeaderStyle',
+    address_style = ParagraphStyle(
+        'AddressStyle',
         parent=styles['Normal'],
         fontSize=10,
-        spaceAfter=5
+        alignment=1, # Center
+        spaceAfter=2
+    )
+    
+    title_style = ParagraphStyle(
+        'TitleStyle',
+        parent=styles['Normal'],
+        fontSize=14,
+        alignment=1, # Center
+        fontName='Helvetica-Bold',
+        spaceAfter=20,
+        underline=True
+    )
+    
+    normal_style = ParagraphStyle(
+        'NormalStyle',
+        parent=styles['Normal'],
+        fontSize=11,
+        leading=16
     )
 
-    # Header
-    elements.append(Paragraph(f"<b>{settings.app_name}</b>", title_style))
-    elements.append(Paragraph("Excellent Catering For Your Events", ParagraphStyle('TagLine', parent=styles['Normal'], alignment=1, spaceAfter=20)))
-
-    # Bill Info
-    data_info = [
-        [Paragraph("<b>Bill No:</b>", header_style), f"BILL-{bill.id}", Paragraph("<b>Date:</b>", header_style), bill.generated_at.strftime("%Y-%m-%d %H:%M")],
-        [Paragraph("<b>Customer Name:</b>", header_style), order.customer_name, Paragraph("<b>Event Date:</b>", header_style), order.event_date.strftime("%Y-%m-%d")],
-        [Paragraph("<b>Phone:</b>", header_style), order.customer_phone, Paragraph("<b>Event Name:</b>", header_style), order.event_name],
-        [Paragraph("<b>Number of Plates:</b>", header_style), str(order.num_plates), "", ""]
+    # 1. Branding Header
+    elements.append(Paragraph("<b>ABRAR</b>", brand_style))
+    elements.append(Paragraph("Tilery Road, Mulihithliu, Bolar, Mangalore - 575001.  MOB - 9108659584, 9035341900", address_style))
+    elements.append(Spacer(1, 10))
+    
+    # 2. Title
+    elements.append(Paragraph("<u><b>ESTIMATED BILL</b></u>", title_style))
+    
+    # 3. Info Section (To, DATE, M/s, etc.)
+    # Using a table for alignment
+    date_str = bill.generated_at.strftime("%d/%m/%Y")
+    info_data = [
+        [Paragraph("<b>To,</b>", normal_style), "", "", Paragraph(f"<b>DATE :</b> {date_str}", normal_style)],
+        ["", Paragraph("M/s", normal_style), f": {order.customer_name}", ""],
+        ["", Paragraph("Function Date", normal_style), f": {order.event_date.strftime('%d/%m/%Y')}", ""],
+        ["", Paragraph("Venue", normal_style), f": {order.venue or ''}", ""],
     ]
     
-    table_info = Table(data_info, colWidths=[100, 150, 80, 150])
-    table_info.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+    info_table = Table(info_data, colWidths=[0.5*inch, 1.2*inch, 2.5*inch, 1.5*inch])
+    info_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
-    elements.append(table_info)
+    elements.append(info_table)
     elements.append(Spacer(1, 20))
 
-    # Items Table
+    # 4. Items Table
+    # Columns: Sl No., PARTICULARS, AMOUNT
     table_data = [
-        ['#', 'Item Name', 'Category', 'Unit', 'Qty / Plate', 'Total Qty', 'Unit Price', 'Line Total']
+        [Paragraph("<b>Sl No.</b>", normal_style), Paragraph("<b>PARTICULARS</b>", normal_style), Paragraph("<b>AMOUNT</b>", normal_style)]
     ]
     
     for i, item in enumerate(order_items, 1):
-        food = item.food_item
-        cat_name = food.category.name if food.category else "Unknown"
-        total_qty = item.quantity_per_plate * order.num_plates
-        
-        row = [
+        table_data.append([
             str(i),
-            food.name,
-            cat_name,
-            food.unit.value,
-            f"{item.quantity_per_plate:.2f}",
-            f"{total_qty:.2f}",
-            f"Rs {item.unit_price:.2f}",
-            f"Rs {item.calculated_total:.2f}"
-        ]
-        table_data.append(row)
-
-    # Styling the items table
-    t = Table(table_data, colWidths=[30, 100, 60, 50, 70, 60, 70, 80])
+            item.food_item.name,
+            f"{item.calculated_total:,.2f}"
+        ])
     
-    # Base style
+    # Add empty rows to match look if needed (optional, but image shows space)
+    # for _ in range(max(0, 6 - len(order_items))):
+    #     table_data.append(["", "", ""])
+
+    # Total row
+    table_data.append([
+        "",
+        Paragraph("<b>TOTAL</b>", ParagraphStyle('TotalLabel', parent=normal_style, alignment=1)),
+        f"{bill.grand_total:,.2f}"
+    ])
+
+    # Styling the main table
+    col_widths = [0.6*inch, 3.8*inch, 1.2*inch]
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    
     t_style = [
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#34495e')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (0,-1), 'CENTER'), # Sl No. center
+        ('ALIGN', (1,0), (1,0), 'CENTER'), # PARTICULARS header center
+        ('ALIGN', (2,0), (2,-1), 'CENTER'), # AMOUNT center (as per image)
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 11),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
-        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#ecf0f1')),
-        ('TEXTCOLOR', (0,1), (-1,-1), colors.black),
-        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,1), (-1,-1), 10),
-        ('ALIGN', (6,1), (-1,-1), 'RIGHT'), # Prices right aligned
-        ('GRID', (0,0), (-1,-1), 1, colors.white),
+        ('FONTNAME', (1,-1), (1,-1), 'Helvetica-Bold'), # TOTAL label bold
+        ('LEFTPADDING', (1,1), (1,-2), 10), # Padding for item names
     ]
-
-    # Highlight non-veg
-    for i, item in enumerate(order_items, 1):
-        food = item.food_item
-        cat_name = food.category.name if food.category else "Unknown"
-        if cat_name.lower() == "non-veg" or cat_name.lower() == "non veg":
-            t_style.append(('TEXTCOLOR', (1,i), (1,i), colors.red))
-
+    
     t.setStyle(TableStyle(t_style))
     elements.append(t)
-    elements.append(Spacer(1, 20))
-
-    # Totals Table
-    price_per_plate = bill.grand_total / order.num_plates if order.num_plates > 0 else 0.0
-    totals_data = [
-        ['', '', 'Subtotal:', f"Rs {bill.subtotal:.2f}"],
-        ['', '', f"Tax ({bill.tax_percent}%):", f"Rs {bill.tax_amount:.2f}"],
-        ['', '', 'Grand Total:', f"Rs {bill.grand_total:.2f}"],
-        ['', '', 'Price Per Plate (Incl. Tax):', f"Rs {price_per_plate:.2f}"]
-    ]
-    totals_table = Table(totals_data, colWidths=[200, 100, 100, 120])
-    totals_table.setStyle(TableStyle([
-        ('ALIGN', (2,0), (-1,-1), 'RIGHT'),
-        ('FONTNAME', (2,2), (-1,2), 'Helvetica-Bold'),
-        ('FONTSIZE', (2,2), (-1,2), 12),
-        ('TEXTCOLOR', (2,2), (-1,2), colors.HexColor('#27ae60')),
-        ('TOPPADDING', (2,2), (-1,2), 10),
-        ('LINEABOVE', (2,2), (-1,2), 1, colors.black),
-    ]))
-    elements.append(totals_table)
     elements.append(Spacer(1, 40))
 
-    # Footer
-    elements.append(Paragraph("<b>Thank you for your business!</b>", ParagraphStyle('Footer', parent=styles['Normal'], alignment=1)))
+    # 5. Footer Signature
+    footer_style = ParagraphStyle(
+        'FooterStyle',
+        parent=styles['Normal'],
+        fontSize=11,
+        alignment=2, # Right
+        leading=14
+    )
+    
+    elements.append(Paragraph("<i>Yours faithfully,</i>", footer_style))
+    elements.append(Paragraph("For <b>ABRAR</b>", footer_style))
+    elements.append(Spacer(1, 30))
+    elements.append(Paragraph("<b>MOHAMMED ASHFAQ</b>", footer_style))
+    elements.append(Paragraph("(Partner)", footer_style))
     
     doc.build(elements)
 

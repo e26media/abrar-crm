@@ -73,6 +73,7 @@ async def create_order(
     customer_phone: Optional[str] = Form(None),
     event_name: str = Form(...),
     event_date: str = Form(...),
+    venue: Optional[str] = Form(None),
     num_plates: Optional[int] = Form(1),
     db: AsyncSession = Depends(get_db)
 ):
@@ -82,6 +83,7 @@ async def create_order(
         customer_phone=customer_phone,
         event_name=event_name,
         event_date=ev_date,
+        venue=venue,
         num_plates=num_plates,
         status=OrderStatusEnum.draft
     )

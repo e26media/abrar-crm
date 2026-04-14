@@ -70,6 +70,7 @@ class Order(Base):
     event_date = Column(DateTime, nullable=False)
     customer_name = Column(String(100), nullable=False)
     customer_phone = Column(String(100), nullable=True)
+    venue = Column(String(255), nullable=True)
     num_plates = Column(Integer, nullable=False, default=1)
     status = Column(Enum(OrderStatusEnum), default=OrderStatusEnum.draft)
     manual_total = Column(Float, nullable=True)

@@ -81,6 +81,7 @@ class OrderBase(BaseModel):
     event_date: datetime
     customer_name: str = Field(..., max_length=100)
     customer_phone: str = Field(..., max_length=20)
+    venue: Optional[str] = Field(None, max_length=255)
     num_plates: int = Field(default=1, gt=0)
 
 class OrderCreate(OrderBase):
@@ -91,6 +92,7 @@ class OrderUpdate(BaseModel):
     event_date: Optional[datetime] = None
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None
+    venue: Optional[str] = None
     num_plates: Optional[int] = Field(None, gt=0)
     status: Optional[OrderStatusEnum] = None
 

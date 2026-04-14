@@ -4,8 +4,3 @@ catering_app/templates/__pycache__
 catering_app/routers/__pycache__
 catering_app/services/__pycache__
 catering_app/database/__pycache__
-catering_app/seed_from_files.py
-catering_app/seed_data.py
-catering_app/test_update.py
-catering_app/check_stats.py
-catering_app/reset_menus.py
