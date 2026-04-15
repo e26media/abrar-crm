@@ -11,6 +11,8 @@ class UnitEnum(str, enum.Enum):
     litre = "litre"
     serving = "serving"
     glass = "glass"
+    plate = "plate"
+    sqft = "sqft"
 
 class OrderStatusEnum(str, enum.Enum):
     draft = "draft"

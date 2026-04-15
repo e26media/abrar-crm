@@ -11,10 +11,15 @@ async def seed_from_files():
         # Paths to the files
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         categories_file = os.path.join(base_dir, "menus", "categories.txt")
-        menus_file = os.path.join(base_dir, "menus", "all_menu_list.txt")
+        
+        # Multiple menu files
+        menu_files = [
+            os.path.join(base_dir, "menus", "all_menu_list.txt"),
+            os.path.join(base_dir, "menus", "rentals.txt")
+        ]
 
-        if not os.path.exists(categories_file) or not os.path.exists(menus_file):
-            print("Error: Menu files not found.")
+        if not os.path.exists(categories_file):
+            print("Error: categories.txt not found.")
             return
 
         # 1. Read and clean categories from categories.txt
@@ -24,42 +29,57 @@ async def seed_from_files():
         print(f"Found {len(category_names)} unique categories in categories.txt")
 
         # 2. Parse menu list and discover extra categories
-        menu_data = {}
-        current_category = None
+        menu_data = {} # Category Name -> List of (item_name, price, unit)
         extra_categories = set()
         
-        with open(menus_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                
-                if line.startswith('●'):
-                    raw_cat = line.lstrip('●').strip().rstrip(':').strip()
-                    # Fuzzy match with existing category names
-                    matched_cat = next((c for c in category_names if c.lower() == raw_cat.lower()), None)
-                    if matched_cat:
-                        current_category = matched_cat
-                    else:
-                        current_category = raw_cat
-                        extra_categories.add(raw_cat)
+        for menus_file in menu_files:
+            if not os.path.exists(menus_file):
+                print(f"Skipping {menus_file}: file not found.")
+                continue
+            
+            print(f"Processing {os.path.basename(menus_file)}...")
+            current_category = None
+            
+            with open(menus_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    if line.startswith('●'):
+                        raw_cat = line.lstrip('●').strip().rstrip(':').strip()
+                        # Fuzzy match with existing category names
+                        matched_cat = next((c for c in category_names if c.lower() == raw_cat.lower()), None)
+                        if matched_cat:
+                            current_category = matched_cat
+                        else:
+                            current_category = raw_cat
+                            extra_categories.add(raw_cat)
+                            
+                        if current_category not in menu_data:
+                            menu_data[current_category] = []
+                    elif current_category:
+                        # Parsing logic: Item Name | Price | Unit
+                        parts = [p.strip() for p in line.lstrip('•').split('|')]
+                        item_name = parts[0]
+                        price = float(parts[1]) if len(parts) > 1 and parts[1] else 0.0
+                        unit_str = parts[2].lower() if len(parts) > 2 and parts[2] else 'serving'
                         
-                    if current_category not in menu_data:
-                        menu_data[current_category] = []
-                elif current_category:
-                    item_name = line.lstrip('•').strip()
-                    if item_name:
-                        menu_data[current_category].append(item_name)
+                        # Validate unit
+                        try:
+                            unit = UnitEnum(unit_str)
+                        except ValueError:
+                            unit = UnitEnum.serving
+                            
+                        if item_name:
+                            menu_data[current_category].append((item_name, price, unit))
 
         all_needed_categories = set(category_names) | extra_categories
-        print(f"Total categories to process (including extras from menu list): {len(all_needed_categories)}")
+        print(f"Total categories to process: {len(all_needed_categories)}")
 
         async with AsyncSessionLocal() as session:
-            # 3. Deactivate all existing items first
-            print("Deactivating all existing menu items...")
-            await session.execute(update(FoodItem).values(is_active=False))
-            await session.flush()
-
+            # Note: Global deactivation removed as requested to "keep existing item active"
+            
             # 4. Handle Categories
             existing_cats_result = await session.execute(select(Category))
             existing_cats_map = {c.name.lower(): c for c in existing_cats_result.scalars().all()}
@@ -79,11 +99,11 @@ async def seed_from_files():
 
             # 5. Insert/Activate Food Items
             total_created = 0
-            total_activated = 0
+            total_updated = 0
             
             for cat_name, item_list in menu_data.items():
                 cat_obj = cat_obj_map[cat_name.lower()]
-                for item_name in item_list:
+                for item_name, price, unit in item_list:
                     # Check if item exists in this category
                     existing_item_result = await session.execute(
                         select(FoodItem).where(FoodItem.name == item_name, FoodItem.category_id == cat_obj.id)
@@ -92,20 +112,22 @@ async def seed_from_files():
                     
                     if existing_item:
                         existing_item.is_active = True
-                        total_activated += 1
+                        existing_item.base_price_per_unit = price
+                        existing_item.unit = unit
+                        total_updated += 1
                     else:
                         new_item = FoodItem(
                             name=item_name,
                             category_id=cat_obj.id,
-                            unit=UnitEnum.serving,
-                            base_price_per_unit=0.0,
+                            unit=unit,
+                            base_price_per_unit=price,
                             is_active=True
                         )
                         session.add(new_item)
                         total_created += 1
             
             await session.commit()
-            print(f"Success! Created {total_created} new items, activated {total_activated} existing items.")
+            print(f"Success! Created {total_created} new items, updated {total_updated} existing items.")
             print("Old menus (not in the text files) are now hidden.")
 
     except Exception:
