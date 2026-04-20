@@ -105,18 +105,40 @@ class Bill(Base):
     __tablename__ = "bills"
 
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), unique=True, nullable=False)
-    subtotal = Column(Float, nullable=False)
-    tax_percent = Column(Float, nullable=False)
-    tax_amount = Column(Float, nullable=False)
-    grand_total = Column(Float, nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), unique=True, nullable=True)
+    customer_name = Column(String(100), nullable=True)
+    subtotal = Column(Float, nullable=True)
+    tax_percent = Column(Float, nullable=True)
+    tax_amount = Column(Float, nullable=True)
+    grand_total = Column(Float, nullable=False, default=0.0)
+    advance_payment = Column(Float, nullable=False, default=0.0)
+    balance_amount = Column(Float, nullable=False, default=0.0)
     generated_at = Column(DateTime(timezone=True), server_default=func.now())
     pdf_path = Column(String(255), nullable=True)
 
     order = relationship("Order", back_populates="bill")
+    items = relationship("BillItem", back_populates="bill", cascade="all, delete-orphan", order_by="BillItem.display_order")
 
     def __repr__(self):
         return f"<Bill {self.id} for Order {self.order_id}>"
+
+class BillItem(Base):
+    __tablename__ = "bill_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bill_id = Column(Integer, ForeignKey("bills.id"), nullable=False)
+    item_date = Column(DateTime, nullable=True)
+    event_name = Column(String(100), nullable=True)
+    venue = Column(String(255), nullable=True)
+    particulars = Column(String(255), nullable=False)
+    amount = Column(Float, nullable=False)
+    discount_amount = Column(Float, nullable=True, default=0.0)
+    display_order = Column(Integer, nullable=False, default=0)
+
+    bill = relationship("Bill", back_populates="items")
+
+    def __repr__(self):
+        return f"<BillItem {self.particulars} for Bill {self.bill_id}>"
 
 
 # ── Quotation Models ──────────────────────────────────────────────────────────

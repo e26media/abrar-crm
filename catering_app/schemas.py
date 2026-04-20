@@ -106,17 +106,40 @@ class OrderRead(OrderBase):
 
 
 # Bill Schemas
+class BillItemBase(BaseModel):
+    item_date: Optional[datetime] = None
+    event_name: Optional[str] = None
+    venue: Optional[str] = None
+    particulars: str
+    amount: float
+    discount_amount: float = 0.0
+    display_order: int = 0
+
+class BillItemCreate(BillItemBase):
+    pass
+
+class BillItemRead(BillItemBase):
+    id: int
+    bill_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
 class BillBase(BaseModel):
-    subtotal: float
-    tax_percent: float
-    tax_amount: float
-    grand_total: float
+    customer_name: Optional[str] = None
+    grand_total: float = 0.0
+    advance_payment: float = 0.0
+    balance_amount: float = 0.0
     pdf_path: Optional[str] = None
+
+class BillCreate(BillBase):
+    order_id: Optional[int] = None
+    items: List[BillItemCreate] = []
 
 class BillRead(BillBase):
     id: int
-    order_id: int
+    order_id: Optional[int]
     generated_at: datetime
+    items: List[BillItemRead] = []
 
     model_config = ConfigDict(from_attributes=True)
 

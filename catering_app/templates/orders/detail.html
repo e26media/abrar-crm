@@ -2,6 +2,24 @@
 
 {% block content %}
 <div class="max-w-5xl mx-auto pb-10">
+    <style>
+        .bill-item-row.is-sub-item .group-field, 
+        .bill-item-row.is-sub-item .discount-field {
+            display: none;
+        }
+        @media (min-width: 768px) {
+            .bill-item-row.is-sub-item .group-field, 
+            .bill-item-row.is-sub-item .discount-field {
+                display: block;
+                visibility: hidden;
+            }
+        }
+        .bill-item-row.is-sub-item {
+            border-top: 1px dashed #e5e7eb;
+            margin-top: -1px;
+            background-color: #fcfcfc;
+        }
+    </style>
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex flex-wrap items-center gap-3">
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Order #{{ order.id }} - {{ order.customer_name }}</h1>
@@ -21,37 +39,201 @@
         </a>
     </div>
 
-    <!-- Items Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Manual Billing Section -->
+    <div class="bg-white shadow sm:rounded-lg overflow-hidden mb-6">
+        <div class="px-4 py-5 sm:px-6 bg-gray-50 border-b flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Billing Information (Manual Entry)</h3>
+            <button type="button" 
+                    hx-get="/bills/add-row" 
+                    hx-vals='js:{index: document.querySelectorAll(".bill-item-row").length}'
+                    hx-target="#bill-items-body" 
+                    hx-swap="beforeend"
+                    class="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-md text-xs font-bold hover:bg-indigo-100 transition-colors">
+                + Add Event
+            </button>
+        </div>
 
-        <!-- Left Column: Search & Add Items (Only editable if draft/confirmed) -->
-        {% if order.status.value != 'billed' %}
-        <div class="lg:col-span-1">
-            <div class="bg-white shadow sm:rounded-lg p-4">
-                <h3 class="text-md leading-6 font-medium text-gray-900 mb-4">Add Food Item</h3>
-                
-                <!-- Search bar for food items -->
-                <div class="mb-4">
-                    <input type="text" name="q" placeholder="Search menu..." 
-                           class="w-full border rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                           hx-get="/orders/{{ order.id }}/search_menu" 
-                           hx-trigger="keyup changed delay:300ms, search" 
-                           hx-target="#food-list-container">
+        <form hx-post="/bills/save" hx-target="#form-container" hx-swap="innerHTML" id="bill-form">
+            <input type="hidden" name="order_id" value="{{ order.id }}">
+            <input type="hidden" name="customer_name" value="{{ order.customer_name }}">
+            
+            <div class="p-0 sm:p-4">
+                <!-- Desktop Header (Hidden on Mobile) -->
+                <div class="hidden md:grid md:grid-cols-12 bg-gray-50 border-b py-2 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <div class="col-span-2">Date</div>
+                    <div class="col-span-2">Event</div>
+                    <div class="col-span-2">Venue</div>
+                    <div class="col-span-3">Particulars</div>
+                    <div class="col-span-1 text-right">Amount</div>
+                    <div class="col-span-1 text-right">Discount</div>
+                    <div class="col-span-1"></div>
                 </div>
 
-                <div id="food-list-container" class="max-h-[420px] overflow-y-auto pr-2 custom-scrollbar">
-                    {% include "orders/_food_list.html" %}
+                <div id="bill-items-body" class="bg-white divide-y divide-gray-200">
+                    {% if bill and bill.items %}
+                        {% for item in bill.items %}
+                            {% set index = loop.index0 %}
+                            {% include "bills/_item_row.html" %}
+                        {% endfor %}
+                    {% else %}
+                        {% for item in initial_items %}
+                            {% set index = loop.index0 %}
+                            {% include "bills/_item_row.html" %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <div class="mt-6 flex flex-col sm:flex-row justify-between items-start gap-6 px-2">
+                    <div class="text-sm text-gray-500 italic">
+                        * All fields are manually filled. Discounts are only visible in PDF if filled.
+                    </div>
+                    <div class="w-full sm:w-80 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-bold text-gray-600">Grand Total:</span>
+                            <span class="text-lg font-bold text-indigo-600" id="grand-total-display">₹0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-4">
+                            <label class="text-sm font-bold text-gray-600 whitespace-nowrap">Advance Payment:</label>
+                            <input type="number" step="1" min="0" name="advance_payment" id="advance-payment" class="w-32 border rounded-md px-3 py-1.5 text-right text-sm focus:ring-2 focus:ring-indigo-500 outline-none" value="{{ bill.advance_payment | int if bill else '0' }}" oninput="calculateGrandTotal()">
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t">
+                            <span class="text-sm font-bold text-gray-900">Balance Amount:</span>
+                            <span class="text-xl font-black text-green-600" id="balance-display">₹0.00</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-        {% endif %}
 
-        <!-- Right Column: Order Summary Table -->
-        <div class="{% if order.status.value == 'billed' %}lg:col-span-3{% else %}lg:col-span-2{% endif %}">
-            {% include "orders/_order_summary.html" %}
-        </div>
-
+            <div class="px-4 py-4 bg-gray-50 border-t flex justify-end gap-3" id="form-container">
+                {% if order.status.value == 'billed' %}
+                <a href="/bills/{{ order.bill.id }}/pdf" target="_blank" class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg shadow-sm text-sm font-bold hover:bg-indigo-700 transition-all flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                    Download PDF
+                </a>
+                {% endif %}
+                <button type="submit" class="px-6 py-2.5 bg-green-600 text-white rounded-lg shadow-md font-bold hover:bg-green-700 transition-all flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    Save & Generate PDF
+                </button>
+            </div>
+        </form>
     </div>
+
+    <script>
+        function calculateGrandTotal() {
+            let total = 0;
+            document.querySelectorAll('.bill-item-row').forEach(row => {
+                const amount = parseInt(row.querySelector('.row-amount').value) || 0;
+                const discount = parseInt(row.querySelector('.row-discount').value) || 0;
+                total += (amount - discount);
+            });
+            
+            const advance = parseInt(document.getElementById('advance-payment').value) || 0;
+            document.getElementById('grand-total-display').innerText = '₹' + total;
+            document.getElementById('balance-display').innerText = '₹' + (total - advance);
+            
+            // Also update grouping visuals
+            autoGroupRows();
+        }
+
+        function autoGroupRows() {
+            const rows = document.querySelectorAll('.bill-item-row');
+            let lastKey = '';
+            rows.forEach(row => {
+                const date = row.querySelector('.date-input')?.value || '';
+                const event = row.querySelector('.event-input')?.value || '';
+                const venue = row.querySelector('.venue-input')?.value || '';
+                const currentKey = `${date}|${event}|${venue}`;
+                
+                if (currentKey !== '||' && currentKey === lastKey) {
+                    row.classList.add('is-sub-item');
+                    row.removeAttribute('data-parent');
+                } else {
+                    row.classList.remove('is-sub-item');
+                    row.setAttribute('data-parent', 'true');
+                    lastKey = currentKey;
+                }
+            });
+        }
+
+        function calculateBalance() {
+            const grandTotalEl = document.getElementById('grand-total-display');
+            if (!grandTotalEl) return;
+            const grandTotal = parseInt(grandTotalEl.innerText.replace('₹', '')) || 0;
+            const advanceEl = document.getElementById('advance-payment');
+            const advance = advanceEl ? (parseInt(advanceEl.value) || 0) : 0;
+            const balance = Math.max(0, grandTotal - advance);
+            const balanceEl = document.getElementById('balance-display');
+            if (balanceEl) {
+                balanceEl.innerText = '₹' + Math.round(balance);
+            }
+        }
+
+        function calculateRowTotal(el) {
+            calculateGrandTotal();
+        }
+
+        // Initial calculation and grouping
+        document.addEventListener('DOMContentLoaded', () => {
+            calculateGrandTotal();
+            autoGroupRows();
+        });
+        // For HTMX swaps
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'bill-items-body') {
+                calculateGrandTotal();
+                autoGroupRows();
+            }
+        });
+        function addSubItem(btn) {
+            const row = btn.closest('.bill-item-row');
+            const newRow = row.cloneNode(true);
+            
+            newRow.classList.add('is-sub-item');
+            newRow.removeAttribute('data-parent');
+            
+            // Clear Particulars and Amount
+            const particularsInput = newRow.querySelector('input[name="particulars[]"]');
+            if (particularsInput) particularsInput.value = '';
+            
+            const amountInput = newRow.querySelector('input[name="amount[]"]');
+            if (amountInput) amountInput.value = '0';
+            
+            // Set Discount to 0 in the sub-item
+            const discountInput = newRow.querySelector('input[name="discount_amount[]"]');
+            if (discountInput) discountInput.value = '0';
+            
+            // Hide the '+' button in sub-items if desired, or keep it
+            // newRow.querySelector('.add-sub-btn').remove();
+            
+            // Place new row after the current one or after the last sub-item of this parent
+            let insertAfter = row;
+            while (insertAfter.nextElementSibling && insertAfter.nextElementSibling.classList.contains('is-sub-item')) {
+                insertAfter = insertAfter.nextElementSibling;
+            }
+            insertAfter.parentNode.insertBefore(newRow, insertAfter.nextSibling);
+            calculateGrandTotal();
+        }
+
+        function syncGroupFields(input, type) {
+            const row = input.closest('.bill-item-row');
+            if (!row.hasAttribute('data-parent')) return;
+            
+            const val = input.value;
+            let next = row.nextElementSibling;
+            while (next && next.classList.contains('is-sub-item')) {
+                const targetInput = next.querySelector(`.${type}-input`);
+                if (targetInput) targetInput.value = val;
+                next = next.nextElementSibling;
+            }
+        }
+
+        function removeRow(btn) {
+            const row = btn.closest('.bill-item-row');
+            row.remove();
+            calculateGrandTotal();
+        }
+    </script>
 
     <!-- Event & Customer Info -->
     <div class="bg-white shadow overflow-hidden sm:rounded-lg">

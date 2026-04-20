@@ -1,0 +1,54 @@
+<div class="bill-item-row p-4 md:p-3 border-b hover:bg-gray-50 transition-colors" data-parent="true">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-2 items-start">
+        <!-- Date -->
+        <div class="md:col-span-2 group-field">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Date</label>
+            <input type="date" name="item_date[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none date-input" value="{{ item.item_date.strftime('%Y-%m-%d') if item and item.item_date else '' }}" onchange="syncGroupFields(this, 'date')">
+        </div>
+
+        <!-- Event -->
+        <div class="md:col-span-2 group-field">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Event</label>
+            <input type="text" name="event_name[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none event-input" placeholder="Event" value="{{ item.event_name if item else '' }}" oninput="syncGroupFields(this, 'event')">
+        </div>
+
+        <!-- Venue -->
+        <div class="md:col-span-2 group-field">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Venue</label>
+            <input type="text" name="venue[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none venue-input" placeholder="Venue" value="{{ item.venue if item else '' }}" oninput="syncGroupFields(this, 'venue')">
+        </div>
+
+        <!-- Particulars -->
+        <div class="md:col-span-3">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Particulars</label>
+            <div class="flex gap-1 items-center">
+                <input type="text" name="particulars[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="Particulars" value="{{ item.particulars if item else '' }}" required>
+                <button type="button" onclick="addSubItem(this)" class="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-green-50 text-green-600 rounded border border-green-200 hover:bg-green-100 transition-colors add-sub-btn" title="Add another item for this event">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Amount -->
+        <div class="md:col-span-1">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Amount</label>
+            <input type="number" step="1" min="0" name="amount[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs text-right row-amount focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="0" value="{{ item.amount | int if item else '0' }}" oninput="calculateGrandTotal()">
+        </div>
+
+        <!-- Discount -->
+        <div class="md:col-span-1 discount-field">
+            <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Discount</label>
+            <input type="number" step="1" min="0" name="discount_amount[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs text-right row-discount focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="0" value="{{ item.discount_amount | int if item else '0' }}" oninput="calculateGrandTotal()">
+        </div>
+
+        <!-- Remove Button -->
+        <div class="md:col-span-1 text-right">
+            <button type="button" onclick="removeRow(this)" class="w-full md:w-auto px-3 py-1.5 md:p-0 border md:border-0 rounded-md md:rounded-none text-red-600 hover:text-red-900 text-xs font-bold md:font-normal">
+                <span class="md:hidden">Remove</span>
+                <span class="hidden md:inline">Remove</span>
+            </button>
+        </div>
+    </div>
+</div>

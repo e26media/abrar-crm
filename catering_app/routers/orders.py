@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime
 
 from catering_app.database import get_db
-from catering_app.models import Order, OrderItem, FoodItem, OrderStatusEnum
+from catering_app.models import Order, OrderItem, FoodItem, OrderStatusEnum, Bill, BillItem
 from catering_app.templating import templates
 from catering_app.services.pricing import calculate_order_total
 
@@ -106,14 +106,36 @@ async def order_detail(request: Request, id: int, db: AsyncSession = Depends(get
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Order not found")
         
-    calc_total = await calculate_order_total(db, id, order.num_plates)
-    
-    # No longer fetching all foods initially to avoid 'previews'
-    foods = []
-    
+    # Fetch Bill if exists
+    bill_result = await db.execute(
+        select(Bill).options(selectinload(Bill.items)).where(Bill.order_id == id)
+    )
+    bill = bill_result.scalar_one_or_none()
+
+    # Pre-fill initial items if no bill exists
+    initial_items = []
+    if not bill:
+        initial_items = [
+            {
+                "item_date": order.event_date,
+                "event_name": order.event_name,
+                "venue": order.venue,
+                "particulars": "Catering Service",
+                "amount": 0.0,
+                "discount_amount": 0.0,
+                "display_order": 1
+            }
+        ]
+
     return templates.TemplateResponse(
         request=request, name="orders/detail.html", 
-        context={"request": request, "id": id, "order": order, "calc_total": calc_total, "foods": foods}
+        context={
+            "request": request, 
+            "id": id, 
+            "order": order, 
+            "bill": bill,
+            "initial_items": initial_items
+        }
     )
 
 # htmx-partial
