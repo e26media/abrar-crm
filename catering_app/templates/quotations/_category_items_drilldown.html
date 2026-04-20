@@ -1,0 +1,53 @@
+<div class="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <button hx-get="/quotations/{{ quotation_id }}/search?q={{ category.name }}&section_id={{ section_id }}" 
+                    hx-target="#search-results-{{ section_id }}"
+                    class="p-2 bg-white rounded-lg text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <div>
+                <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Select from</span>
+                <h3 class="text-sm font-black text-indigo-900 uppercase tracking-tight">{{ category.name }}</h3>
+            </div>
+        </div>
+        
+        <button 
+            hx-post="/quotations/{{ quotation_id }}/sections/{{ section_id }}/items/category-header"
+            hx-vals='{"category_id": {{ category.id }}}'
+            hx-target="#items-{{ section_id }}"
+            hx-swap="innerHTML"
+            hx-on::after-request="if(event.detail.successful) { 
+                let input = document.getElementById('search-input-{{ section_id }}');
+                if(input) { input.value = ''; htmx.trigger(input, 'keyup'); }
+            }"
+            class="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 underline underline-offset-4">
+            Add Header only
+        </button>
+    </div>
+
+    <form hx-post="/quotations/{{ quotation_id }}/sections/{{ section_id }}/items/bulk"
+          hx-target="#items-{{ section_id }}"
+          hx-swap="innerHTML"
+          hx-on::after-request="if(event.detail.successful) { 
+              let input = document.getElementById('search-input-{{ section_id }}');
+              if(input) { input.value = ''; htmx.trigger(input, 'keyup'); }
+          }">
+        <input type="hidden" name="category_id" value="{{ category.id }}">
+        
+        <div class="space-y-1 mb-4 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+            {% for item in items %}
+            <label class="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-2 hover:border-indigo-200 transition-colors cursor-pointer group">
+                <span class="text-xs font-bold text-gray-700 uppercase tracking-tight">{{ item.name }}</span>
+                <input type="checkbox" name="item_ids" value="{{ item.id }}" 
+                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+            </label>
+            {% endfor %}
+        </div>
+
+        <button type="submit" 
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-indigo-100 transition-all active:scale-95">
+            Add Selected Items
+        </button>
+    </form>
+</div>

@@ -8,13 +8,14 @@ from catering_app.database import get_db
 from fastapi import Depends
 from catering_app.models import Order, Bill, OrderStatusEnum, FoodItem
 
-from catering_app.routers import items, orders, bills
+from catering_app.routers import items, orders, bills, quotations
 
 app = FastAPI(title=settings.app_name)
 
 app.include_router(items.router)
 app.include_router(orders.router)
 app.include_router(bills.router)
+app.include_router(quotations.router)
 
 # Will be mounted fully when directories exist
 try:

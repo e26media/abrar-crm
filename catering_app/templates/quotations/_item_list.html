@@ -1,0 +1,68 @@
+{% if grouped %}
+<div class="divide-y divide-gray-100 rounded-lg border border-gray-200 overflow-hidden">
+    {% for group in grouped %}
+
+    {% if group.type == 'category' %}
+    <!-- Category group -->
+    <div class="bg-white">
+        <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50">
+            <div class="flex items-center gap-2">
+                <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+                <span class="text-sm font-bold text-gray-800 uppercase tracking-wide">{{ group.label }}</span>
+                <span class="text-xs text-gray-400">({{ group.sub_items | length }} items)</span>
+            </div>
+            <button
+                hx-delete="/quotations/{{ quotation.id }}/items/{{ group.first_item_id }}"
+                hx-confirm="Remove entire '{{ group.label }}' group?"
+                hx-target="#selected-items"
+                hx-swap="innerHTML"
+                class="text-xs text-red-400 hover:text-red-600 transition-colors">
+                Remove group
+            </button>
+        </div>
+        <ul class="px-6 py-2 space-y-1">
+            {% for sub in group.sub_items %}
+            <li class="flex items-center justify-between text-sm text-gray-700 py-0.5">
+                <span>{{ loop.index }}.&nbsp;&nbsp;&nbsp;{{ sub.label }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% else %}
+    <!-- Standalone item -->
+    <div class="flex items-center justify-between px-4 py-2.5 bg-white">
+        <span class="text-sm text-gray-800">&bull;&nbsp;&nbsp;&nbsp;<span class="uppercase font-medium">{{ group.label }}</span></span>
+        <button
+            hx-delete="/quotations/{{ quotation.id }}/items/{{ group.id }}"
+            hx-target="#selected-items"
+            hx-swap="innerHTML"
+            class="text-xs text-red-400 hover:text-red-600 transition-colors">
+            Remove
+        </button>
+    </div>
+    {% endif %}
+
+    {% endfor %}
+</div>
+
+<!-- Amount summary strip -->
+<div class="mt-4 flex justify-end">
+    <div class="bg-green-50 border border-green-200 rounded-lg px-5 py-3 text-right">
+        <p class="text-xs text-green-600 font-medium uppercase tracking-wider">Total Amount</p>
+        <p class="text-xl font-bold text-green-800">Rs. {{ "{:,}".format(quotation.amount) }}/-</p>
+    </div>
+</div>
+
+{% else %}
+<div class="text-center py-12 text-gray-400">
+    <svg class="mx-auto w-10 h-10 mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+    <p class="text-sm">No items added yet.</p>
+    <p class="text-xs mt-1">Use the search bar on the left to add categories or individual items.</p>
+</div>
+{% endif %}

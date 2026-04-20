@@ -117,3 +117,78 @@ class Bill(Base):
 
     def __repr__(self):
         return f"<Bill {self.id} for Order {self.order_id}>"
+
+
+# ── Quotation Models ──────────────────────────────────────────────────────────
+
+class QuotationItemTypeEnum(str, enum.Enum):
+    category_item  = "category_item"   # item added under a category group
+    standalone_item = "standalone_item" # item added individually (bullet style)
+
+
+class Quotation(Base):
+    __tablename__ = "quotations"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    customer_name = Column(String(100), nullable=False)
+    function_date = Column(DateTime, nullable=False)
+    venue         = Column(String(255), nullable=True)
+    created_at    = Column(DateTime(timezone=True), server_default=func.now())
+
+    sections = relationship(
+        "QuotationSection",
+        back_populates="quotation",
+        cascade="all, delete-orphan",
+        order_by="QuotationSection.display_order",
+    )
+
+    def __repr__(self):
+        return f"<Quotation {self.id} - {self.customer_name}>"
+
+    @property
+    def total_amount(self):
+        """Calculates total amount from sections and individual items."""
+        sec_sum = sum(s.amount for s in self.sections)
+        item_sum = sum(i.amount for s in self.sections for i in s.items if i.amount)
+        return sec_sum + item_sum
+
+
+class QuotationSection(Base):
+    __tablename__ = "quotation_sections"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    quotation_id   = Column(Integer, ForeignKey("quotations.id"), nullable=False)
+    name           = Column(String(100), nullable=True)   # e.g. "IFTHAR MENU"
+    amount         = Column(Integer, nullable=False, default=0)
+    display_order  = Column(Integer, nullable=False, default=0)
+
+    quotation = relationship("Quotation", back_populates="sections")
+    items     = relationship(
+        "QuotationItem",
+        back_populates="section",
+        cascade="all, delete-orphan",
+        order_by="QuotationItem.display_order",
+    )
+
+    def __repr__(self):
+        return f"<QuotationSection {self.name} of Quotation {self.quotation_id}>"
+
+
+class QuotationItem(Base):
+    __tablename__ = "quotation_items"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    section_id     = Column(Integer, ForeignKey("quotation_sections.id"), nullable=False)
+    food_item_id   = Column(Integer, ForeignKey("food_items.id"), nullable=True)
+    category_id    = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    label          = Column(String(150), nullable=False)   # display name
+    item_type      = Column(Enum(QuotationItemTypeEnum), nullable=False)
+    amount         = Column(Integer, nullable=True)        # individual item price
+    display_order  = Column(Integer, nullable=False, default=0)
+
+    section    = relationship("QuotationSection", back_populates="items")
+    food_item  = relationship("FoodItem")
+    category   = relationship("Category")
+
+    def __repr__(self):
+        return f"<QuotationItem {self.label}>"
