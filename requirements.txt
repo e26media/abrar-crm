@@ -8,5 +8,5 @@ python-multipart>=0.0.6
 reportlab>=4.0.4
 pydantic-settings>=2.0.3
 pydantic
-psycopg2-binary
+asyncpg
 python-dotenv
