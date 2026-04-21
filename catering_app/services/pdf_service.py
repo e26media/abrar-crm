@@ -5,6 +5,8 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from datetime import datetime
+import tempfile
+
 
 def number_to_words(number):
     """Simple converter for Indian currency format (Lakhs, Crores)."""
