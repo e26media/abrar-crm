@@ -62,7 +62,13 @@ def generate_bill_pdf(bill, output_path: str):
     elements = []
 
     # Header: Brand & Contact
-    elements.append(Paragraph("ABRAR", brand_style))
+    logo_path = os.path.join("catering_app", "static", "logo.png")
+    if os.path.exists(logo_path):
+        img = Image(logo_path, width=1.5*inch, height=1.5*inch)
+        img.hAlign = 'CENTER'
+        elements.append(img)
+    else:
+        elements.append(Paragraph("ABRAR", brand_style))
     elements.append(Paragraph("Tilery Road, Mulihithliu, Bolar, Mangalore - 575001. MOB - 9108659584, 9035341900", address_style))
     elements.append(Paragraph("ESTIMATED BILL", est_bill_style))
     
@@ -88,7 +94,8 @@ def generate_bill_pdf(bill, output_path: str):
     # Grouping logic
     groups = {}
     for item in bill.items:
-        key = (item.item_date.strftime("%d/%m/%y") if item.item_date else "", item.venue or "", item.event_name or "")
+        item_date_str = item.item_date.strftime("%d/%m/%y") if item.item_date else bill.generated_at.strftime("%d/%m/%y")
+        key = (item_date_str, item.venue or "", item.event_name or "")
         if key not in groups:
             groups[key] = []
         groups[key].append(item)
@@ -105,9 +112,9 @@ def generate_bill_pdf(bill, output_path: str):
                 Paragraph(str(si) if i == 0 else "", normal_style),
                 Paragraph(date_str if i == 0 else "", normal_style),
                 Paragraph(event_str if i == 0 else "", bold_style),
-                Paragraph(venue_str if i == 0 else "", bold_style),
+                Paragraph(venue_str if i == 0 else "", normal_style),
                 Paragraph(item.particulars or "", normal_style),
-                Paragraph(f"{int(item.amount):,}", right_style)
+                Paragraph(f"{item.amount:,.0f}" if item.amount else "0", right_style)
             ]
             table_data.append(row)
             total_amount_sum += item.amount

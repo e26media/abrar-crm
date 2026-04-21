@@ -12,7 +12,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch, mm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle,
-    Paragraph, Spacer, HRFlowable,
+    Paragraph, Spacer, HRFlowable, Image,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -128,7 +128,14 @@ async def generate_quotation_pdf(session: AsyncSession, quotation_id: int) -> st
     elements = []
 
     # ── 1. Header ────────────────────────────────────────────────────────────
-    elements.append(Paragraph("<b>ABRAR</b>", S["brand"]))
+    logo_path = os.path.join("catering_app", "static", "logo.png")
+    if os.path.exists(logo_path):
+        # We can use a size that looks good, e.g., 1.5 inch width
+        img = Image(logo_path, width=1.5*inch, height=1.5*inch)
+        img.hAlign = 'CENTER'
+        elements.append(img)
+    else:
+        elements.append(Paragraph("<b>ABRAR</b>", S["brand"]))
     elements.append(Paragraph(
         "Tilery Road, Mulihithliu, Bolar, Mangalore - 575001.&nbsp;&nbsp;"
         "MOB - 9108659584, 9035341900",
@@ -196,8 +203,9 @@ async def generate_quotation_pdf(session: AsyncSession, quotation_id: int) -> st
         sub_counter = 0
         
         for item in sorted(section.items, key=lambda x: x.display_order):
-            if item.amount:
-                grand_total += item.amount
+            if item.amount and item.item_type == QuotationItemTypeEnum.standalone_item:
+                if not section.amount:
+                    grand_total += item.amount
                 item_amt_str = _fmt_amount(item.amount)
             else:
                 item_amt_str = ""
@@ -256,15 +264,17 @@ async def generate_quotation_pdf(session: AsyncSession, quotation_id: int) -> st
 
     # Add lines between sections
     row_idx = 1 # Skip header
-    for section in sorted(quotation.sections, key=lambda x: x.display_order):
+    sections = sorted(quotation.sections, key=lambda x: x.display_order)
+    for i, section in enumerate(sections):
+        if i > 0:
+            # Add line ABOVE this section (effectively below the previous one)
+            t_style.append(("LINEABOVE", (0, row_idx), (-1, row_idx), 0.5, colors.black))
+            
         if section.name:
             row_idx += 1 # Section heading
         row_idx += len(section.items) # Items
-        row_idx += 1 # Amount row
-        
-        # Add line below the amount row of each section (except the last one which is covered by Total or Box)
-        if row_idx < num_rows - 1:
-            t_style.append(("LINEBELOW", (0, row_idx - 1), (-1, row_idx - 1), 0.5, colors.black))
+        if section.amount:
+            row_idx += 1 # Amount row
 
     main_table = Table(table_data, colWidths=[desc_w, amt_w], repeatRows=1)
     main_table.setStyle(TableStyle(t_style))

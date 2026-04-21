@@ -170,9 +170,15 @@ class Quotation(Base):
     @property
     def total_amount(self):
         """Calculates total amount from sections and individual items."""
-        sec_sum = sum(s.amount for s in self.sections)
-        item_sum = sum(i.amount for s in self.sections for i in s.items if i.amount)
-        return sec_sum + item_sum
+        total = 0
+        for s in self.sections:
+            amt = s.amount or 0
+            total += amt
+            if amt == 0:
+                # If section has no base amount, add up standalone items
+                total += sum((i.amount or 0) for i in s.items 
+                             if i.amount and i.item_type == QuotationItemTypeEnum.standalone_item)
+        return total
 
 
 class QuotationSection(Base):

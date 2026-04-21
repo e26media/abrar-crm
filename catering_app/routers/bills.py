@@ -182,18 +182,17 @@ async def download_bill_pdf(id: int, db: AsyncSession = Depends(get_db)):
     pdf_rel_path = bill.pdf_path if bill.pdf_path else f"/static/bills/bill_{id}.pdf"
     path = os.path.join(os.getcwd(), "catering_app", pdf_rel_path.lstrip("/"))
     
-    # If the physical file is missing, re-generate it!
+    # Re-generate PDF to ensure latest logic/branding is applied
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Bill).options(selectinload(Bill.items)).where(Bill.id == id)
+    )
+    bill = result.scalar_one_or_none()
+    if bill:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        generate_bill_pdf(bill, path)
+    
     if not os.path.exists(path):
-        from sqlalchemy.orm import selectinload
-        result = await db.execute(
-            select(Bill).options(selectinload(Bill.items)).where(Bill.id == id)
-        )
-        bill = result.scalar_one_or_none()
-        if bill:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            generate_bill_pdf(bill, path)
-        # Verify it was created
-        if not os.path.exists(path):
-            return HTMLResponse(f"Failed to generate PDF at {path}", status_code=500)
+        return HTMLResponse(f"Failed to generate PDF at {path}", status_code=500)
         
     return FileResponse(path, filename=f"Bill_{id}.pdf")

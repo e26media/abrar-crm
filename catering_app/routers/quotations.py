@@ -115,15 +115,15 @@ async def add_section(
         from fastapi.responses import Response
         return Response(headers={"HX-Refresh": "true"})
 
-    # Get min order to place NEW section at the TOP
-    min_order_res = await db.execute(select(func.min(QuotationSection.display_order)).where(QuotationSection.quotation_id == id))
-    min_order = min_order_res.scalar() or 0
+    # Get max order to place NEW section at the BOTTOM
+    max_order_res = await db.execute(select(func.max(QuotationSection.display_order)).where(QuotationSection.quotation_id == id))
+    max_order = max_order_res.scalar() or 0
     
     new_section = QuotationSection(
         quotation_id=id,
         name=name.strip().upper(),
         amount=amount,
-        display_order=min_order - 1
+        display_order=max_order + 1
     )
     db.add(new_section)
     await db.commit()
@@ -170,11 +170,7 @@ async def get_quotation_total(id: int, db: AsyncSession = Depends(get_db)):
     )
     q = result.scalar_one()
     
-    sec_sum = sum(s.amount for s in q.sections)
-    item_sum = sum(i.amount for s in q.sections for i in s.items if i.amount)
-    total = sec_sum + item_sum
-    
-    return HTMLResponse(f'{total:,}')
+    return HTMLResponse(f'{q.total_amount:,}')
 
 
 # ── HTMX: Search (categories + items) ────────────────────────────────────────
@@ -373,11 +369,7 @@ async def update_item_amount(
     )
     await db.commit()
 
-    # Render items list as usual
-    content = await _render_section_items(request, section_id, db)
-    # Also trigger the grand total update
-    content.headers["HX-Trigger"] = "quotationChanged"
-    return content
+    return await _render_section_items(request, section_id, db)
 
 
 # ── HTMX: Remove Item ─────────────────────────────────────────────────────────
@@ -439,8 +431,10 @@ async def _render_section_items(request: Request, section_id: int, db: AsyncSess
     sec_res = await db.execute(select(QuotationSection).where(QuotationSection.id == section_id))
     section = sec_res.scalar_one()
     
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="quotations/_section_items.html",
         context={"request": request, "items": items, "section": section, "quotation_id": section.quotation_id},
     )
+    response.headers["HX-Trigger"] = "quotationChanged"
+    return response
