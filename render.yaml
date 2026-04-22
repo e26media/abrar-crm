@@ -1,19 +1,17 @@
 services:
   - type: web
-    name: catering-crm
-    runtime: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn catering_app.main:app --host 0.0.0.0 --port $PORT"
+    name: catering-management
+    env: python
+    buildCommand: ./build.sh
+    startCommand: uvicorn catering_app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: catering-db
+          name: catering_db
           property: connectionString
-      - key: PYTHON_VERSION
-        value: 3.11.0
+      - key: APP_NAME
+        value: Catering Management System
 
 databases:
-  - name: catering-db
-    databaseName: catering
-    user: catering_user
+  - name: catering_db
     plan: free
