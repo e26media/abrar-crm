@@ -96,6 +96,18 @@ async def quotation_detail(request: Request, id: int, db: AsyncSession = Depends
 
 @router.delete("/{id}", response_class=HTMLResponse)
 async def delete_quotation(id: int, db: AsyncSession = Depends(get_db)):
+    # Delete all items in all sections of this quotation first
+    section_ids_stmt = select(QuotationSection.id).where(QuotationSection.quotation_id == id)
+    section_ids_result = await db.execute(section_ids_stmt)
+    section_ids = section_ids_result.scalars().all()
+    
+    if section_ids:
+        await db.execute(delete(QuotationItem).where(QuotationItem.section_id.in_(section_ids)))
+    
+    # Delete all sections
+    await db.execute(delete(QuotationSection).where(QuotationSection.quotation_id == id))
+    
+    # Finally delete the quotation
     await db.execute(delete(Quotation).where(Quotation.id == id))
     await db.commit()
     return HTMLResponse(
@@ -135,6 +147,9 @@ async def add_section(
 
 @router.delete("/{id}/sections/{section_id}", response_class=HTMLResponse)
 async def delete_section(id: int, section_id: int, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import delete
+    # Delete items first to avoid foreign key violation
+    await db.execute(delete(QuotationItem).where(QuotationItem.section_id == section_id))
     await db.execute(delete(QuotationSection).where(QuotationSection.id == section_id, QuotationSection.quotation_id == id))
     await db.commit()
     from fastapi.responses import Response
@@ -160,6 +175,43 @@ async def update_section(
     
     # Trigger refresh of the grand total on the page
     response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "quotationChanged"
+    return response
+
+@router.post("/{id}/sections/{section_id}/items/{item_id}/update", response_class=HTMLResponse)
+async def update_quotation_item(
+    request: Request,
+    id: int,
+    section_id: int,
+    item_id: int,
+    amount: Optional[int] = Form(None),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = update(QuotationItem).where(QuotationItem.id == item_id, QuotationItem.section_id == section_id)
+    if amount is not None:
+        stmt = stmt.values(amount=amount)
+    
+    await db.execute(stmt)
+    await db.commit()
+    
+    # Reload items for the section
+    result = await db.execute(
+        select(QuotationItem)
+        .where(QuotationItem.section_id == section_id)
+        .order_by(QuotationItem.display_order)
+    )
+    items = result.scalars().all()
+    
+    response = templates.TemplateResponse(
+        request=request,
+        name="quotations/_section_items.html",
+        context={
+            "request": request,
+            "quotation_id": id,
+            "section": {"id": section_id},
+            "items": items,
+        },
+    )
     response.headers["HX-Trigger"] = "quotationChanged"
     return response
 

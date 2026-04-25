@@ -1,6 +1,7 @@
 """
 Generates a Quotation PDF matching the ABRAR reference image.
 Updated to support multiple Sections (Menus) and separate logo/watermark.
+Correctly handles item-level amounts and section-level amounts.
 """
 
 import os
@@ -85,6 +86,7 @@ def _styles():
 
 
 def _fmt_amount(amount: int) -> str:
+    if not amount: return ""
     return f"Rs. {amount:,}/-"
 
 def draw_static_elements(canvas, doc):
@@ -233,7 +235,11 @@ async def generate_quotation_pdf(session: AsyncSession, quotation_id: int) -> st
     current_row = 1
     for section in sorted(quotation.sections, key=lambda x: x.display_order):
         section_start_row = current_row
-        grand_total += section.amount
+        
+        # If section has a base amount, use it. Otherwise, we will sum item amounts.
+        has_section_amount = (section.amount and section.amount > 0)
+        if has_section_amount:
+            grand_total += section.amount
         
         # Section Heading row
         if section.name:
@@ -248,6 +254,11 @@ async def generate_quotation_pdf(session: AsyncSession, quotation_id: int) -> st
         sub_counter = 0
         
         for item in sorted(section.items, key=lambda x: x.display_order):
+            item_amt_display = ""
+            if not has_section_amount and item.amount:
+                grand_total += item.amount
+                item_amt_display = _fmt_amount(item.amount)
+
             if item.item_type == QuotationItemTypeEnum.category_item:
                 if item.category_id and not item.food_item_id:
                     # Category header
@@ -255,28 +266,28 @@ async def generate_quotation_pdf(session: AsyncSession, quotation_id: int) -> st
                     sub_counter = 0
                     table_data.append([
                         Paragraph(f"{main_counter}.&nbsp;&nbsp;&nbsp;<b>{item.label.upper()}</b>", S["cat_heading"]),
-                        ""
+                        Paragraph(item_amt_display, S["amount_style"])
                     ])
                 else:
                     # Sub item
                     sub_counter += 1
                     table_data.append([
                         Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{sub_counter}.&nbsp;&nbsp;&nbsp;{item.label}", S["sub_item"]),
-                        ""
+                        Paragraph(item_amt_display, S["amount_style"])
                     ])
             else:
                 # Standalone Item
                 main_counter += 1
                 table_data.append([
                     Paragraph(f"{main_counter}.&nbsp;&nbsp;&nbsp;{item.label.upper()}", S["standalone"]),
-                    ""
+                    Paragraph(item_amt_display, S["amount_style"])
                 ])
             current_row += 1
 
         section_end_row = current_row - 1
         
-        # Span the amount cell for the whole section and center it vertically
-        if section.amount:
+        # Span the amount cell ONLY if there's a section-level amount
+        if has_section_amount:
             table_data[section_start_row][1] = Paragraph(_fmt_amount(section.amount), S["amount_style"])
             t_style.append(("SPAN", (1, section_start_row), (1, section_end_row)))
             t_style.append(("VALIGN", (1, section_start_row), (1, section_end_row), "MIDDLE"))
