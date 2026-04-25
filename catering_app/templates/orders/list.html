@@ -32,7 +32,7 @@
                     <div class="sm:flex">
                         <p class="flex items-center text-sm text-gray-500">
                             <span class="font-medium mr-1 text-gray-700">{{ order.event_name }}</span> 
-                            ({{ order.num_plates }} plates)
+                            ({{ order.num_plates }} plate{{ 's' if order.num_plates != 1 }})
                         </p>
                     </div>
                     <div class="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">

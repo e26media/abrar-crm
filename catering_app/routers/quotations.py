@@ -50,6 +50,7 @@ async def new_quotation_form(request: Request):
 @router.post("/")
 async def create_quotation(
     customer_name: str = Form(...),
+    customer_phone: Optional[str] = Form(None),
     function_date: str = Form(...),
     venue: str = Form(...),
     db: AsyncSession = Depends(get_db),
@@ -57,6 +58,7 @@ async def create_quotation(
     fn_date = datetime.strptime(function_date, "%Y-%m-%d")
     q = Quotation(
         customer_name=customer_name,
+        customer_phone=customer_phone,
         function_date=fn_date,
         venue=venue,
     )

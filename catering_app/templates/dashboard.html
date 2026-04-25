@@ -126,7 +126,7 @@
                     <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.location='/orders/{{ order.id }}'">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-bold text-gray-900">{{ order.event_name }}</div>
-                            <div class="text-xs text-gray-500">{{ order.num_plates }} plates</div>
+                            <div class="text-xs text-gray-500">{{ order.num_plates }} plate{{ 's' if order.num_plates != 1 }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {{ order.customer_name }}

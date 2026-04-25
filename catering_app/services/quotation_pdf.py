@@ -160,9 +160,14 @@ async def generate_quotation_pdf(session: AsyncSession, quotation_id: int) -> st
     info_data = [
         [Paragraph("<b>To,</b>", S["normal"]), Paragraph(f"<b>DATE :</b> {date_str}", S["normal"])],
         [Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;Mr. {customer_str}", S["normal"]), ""],
+    ]
+    if quotation.customer_phone:
+        info_data.append([Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;Phone : {quotation.customer_phone}", S["normal"]), ""])
+    
+    info_data.extend([
         [Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;Function Date : {fn_date_str}", S["normal"]), ""],
         [Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;Venue : {venue_str}", S["normal"]), ""],
-    ]
+    ])
 
     info_table = Table(info_data, colWidths=[left_w, right_w])
     info_table.setStyle(TableStyle([

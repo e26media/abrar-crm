@@ -133,7 +133,7 @@ def generate_bill_pdf(bill, output_path: str):
 
     # Footers
     table_data.append(["", "", "", "", Paragraph("<b>TOTAL</b>", bold_style), Paragraph(f"<b>{int(total_amount_sum):,}</b>", right_bold_style)])
-    table_data.append(["", "", "", "", Paragraph("<b>ADVANCE RECIVED</b>", bold_style), Paragraph(f"<b>{int(bill.advance_payment):,}</b>", right_bold_style)])
+    table_data.append(["", "", "", "", Paragraph("<b>ADVANCE RECEIVED</b>", bold_style), Paragraph(f"<b>{int(bill.advance_payment):,}</b>", right_bold_style)])
     
     balance = max(0, total_amount_sum - bill.advance_payment)
     table_data.append(["", "", "", "", Paragraph("<b>TOTAL BALANCE AMOUNT</b>", ParagraphStyle('LargeBold', parent=bold_style, fontSize=11)), Paragraph(f"<b>{int(balance):,}</b>", ParagraphStyle('LargeBoldRight', parent=right_bold_style, fontSize=11))])

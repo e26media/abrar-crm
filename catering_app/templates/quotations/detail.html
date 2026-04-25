@@ -52,6 +52,9 @@
             <div>
                 <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Client</p>
                 <p class="text-sm font-bold text-gray-800">{{ quotation.customer_name }}</p>
+                {% if quotation.customer_phone %}
+                <p class="text-xs text-gray-500 font-medium">{{ quotation.customer_phone }}</p>
+                {% endif %}
             </div>
         </div>
         <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">

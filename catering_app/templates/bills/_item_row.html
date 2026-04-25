@@ -3,19 +3,19 @@
         <!-- Date -->
         <div class="md:col-span-2 group-field">
             <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Date</label>
-            <input type="date" name="item_date[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none date-input" value="{{ item.item_date.strftime('%Y-%m-%d') if item and item.item_date else '' }}" onchange="syncGroupFields(this, 'date')">
+            <input type="date" name="item_date[]" required class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none date-input" value="{{ item.item_date.strftime('%Y-%m-%d') if item and item.item_date else '' }}" onchange="syncGroupFields(this, 'date')">
         </div>
 
         <!-- Event -->
         <div class="md:col-span-2 group-field">
             <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Event</label>
-            <input type="text" name="event_name[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none event-input" placeholder="Event" value="{{ item.event_name if item else '' }}" oninput="syncGroupFields(this, 'event')">
+            <input type="text" name="event_name[]" required class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none event-input" placeholder="Event" value="{{ item.event_name if item else '' }}" oninput="syncGroupFields(this, 'event')">
         </div>
 
         <!-- Venue -->
         <div class="md:col-span-2 group-field">
             <label class="block md:hidden text-[10px] font-bold text-gray-400 uppercase mb-1">Venue</label>
-            <input type="text" name="venue[]" class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none venue-input" placeholder="Venue" value="{{ item.venue if item else '' }}" oninput="syncGroupFields(this, 'venue')">
+            <input type="text" name="venue[]" required class="w-full border rounded px-2 py-1.5 md:py-1 text-sm md:text-xs focus:ring-1 focus:ring-indigo-500 outline-none venue-input" placeholder="Venue" value="{{ item.venue if item else '' }}" oninput="syncGroupFields(this, 'venue')">
         </div>
 
         <!-- Particulars -->

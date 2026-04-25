@@ -36,7 +36,12 @@
                 {% for q in quotations %}
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3 text-sm text-gray-500">{{ q.id }}</td>
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ q.customer_name }}</td>
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                        {{ q.customer_name }}
+                        {% if q.customer_phone %}
+                        <div class="text-[10px] text-gray-400 font-normal">{{ q.customer_phone }}</div>
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-3 text-sm text-gray-600">{{ q.function_date.strftime('%d/%m/%Y') }}</td>
                     <td class="px-4 py-3 text-sm text-gray-600">{{ q.venue or '-' }}</td>
                     <td class="px-4 py-3 text-sm text-gray-600">

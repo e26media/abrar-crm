@@ -153,6 +153,7 @@ class Quotation(Base):
 
     id            = Column(Integer, primary_key=True, index=True)
     customer_name = Column(String(100), nullable=False)
+    customer_phone = Column(String(100), nullable=True)
     function_date = Column(DateTime, nullable=False)
     venue         = Column(String(255), nullable=True)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())

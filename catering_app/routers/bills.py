@@ -1,4 +1,6 @@
+import json
 from fastapi import APIRouter, Depends, Request
+from datetime import datetime
 from fastapi.responses import HTMLResponse, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -74,7 +76,13 @@ async def save_manual_bill(request: Request, db: AsyncSession = Depends(get_db))
     bill_items_data = []
     
     for i in range(len(particulars)):
-        if not particulars[i]: continue # Skip empty rows
+        # Skip row ONLY if it's completely empty
+        if not particulars[i] and not event_names[i] and not venues[i]:
+            continue
+        
+        # Validate mandatory fields
+        if not item_dates[i] or not event_names[i] or not venues[i] or not particulars[i]:
+            return HTMLResponse("<div class='bg-red-100 text-red-700 p-3 rounded mb-4'>Error: Date, Event, Venue, and Particulars are mandatory for all rows.</div>", status_code=400)
         
         amt = max(0, int(float(amounts[i] or 0)))
         dsc = max(0, int(float(discounts[i] or 0)))
@@ -149,11 +157,10 @@ async def save_manual_bill(request: Request, db: AsyncSession = Depends(get_db))
     bill.pdf_path = pdf_rel_path
     await db.commit()
     
-    return templates.TemplateResponse(
-        request=request, 
-        name="bills/_bill_generated.html", 
-        context={"request": request, "bill": bill}
-    )
+    # Return a response that triggers the download event on the client side
+    response = HTMLResponse("<div class='bg-green-50 text-green-700 p-3 rounded mb-4'>Bill saved! Downloading PDF...</div>")
+    response.headers["HX-Trigger"] = json.dumps({"downloadPdf": {"url": f"/bills/{bill.id}/pdf"}})
+    return response
 
 @router.get("/add-row", response_class=HTMLResponse)
 async def add_bill_item_row(request: Request):
@@ -188,7 +195,13 @@ async def download_bill_pdf(id: int, db: AsyncSession = Depends(get_db)):
         select(Bill).options(selectinload(Bill.items)).where(Bill.id == id)
     )
     bill = result.scalar_one_or_none()
+    
     if bill:
+        # Final validation check before generation
+        for i, item in enumerate(bill.items):
+            if not item.item_date or not item.event_name or not item.venue or not item.particulars:
+                return HTMLResponse(f"Cannot generate PDF: Item #{i+1} ('{item.particulars}') is missing mandatory fields (Date, Event, or Venue). Please edit the bill, fill all fields, and click Save.", status_code=400)
+                
         os.makedirs(os.path.dirname(path), exist_ok=True)
         generate_bill_pdf(bill, path)
     
