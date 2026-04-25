@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from typing import Optional
 
 from catering_app.database import get_db
@@ -12,24 +13,35 @@ router = APIRouter(prefix="/items", tags=["items"])
 
 @router.get("/", response_class=HTMLResponse)
 async def list_items(request: Request, category: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    query = select(FoodItem, Category).join(Category, FoodItem.category_id == Category.id).where(FoodItem.is_active == True)
-    if category:
-        query = query.where(Category.name.ilike(f"%{category}%"))
+    # Use selectinload for the category relationship
+    query = select(FoodItem).options(selectinload(FoodItem.category)).where(FoodItem.is_active == True)
     
+    if category and category.strip():
+        query = query.join(Category).where(Category.name.ilike(f"%{category}%"))
+    
+    query = query.order_by(FoodItem.name)
     result = await db.execute(query)
-    items_data = result.all()
+    items = result.scalars().all()
     
-    # Render with full page vs partial depending on HX-Request
+    # Debug info for logs
+    print(f"DEBUG: Found {len(items)} active items. Filter: '{category}'")
+    
+    categories_result = await db.execute(select(Category).order_by(Category.name))
+    categories = categories_result.scalars().all()
+    print(f"DEBUG: Found {len(categories)} categories.")
+        
     template_name = "items/list.html"
     if request.headers.get("HX-Request"):
-        template_name = "items/_items_list_partial.html" # A partial template for just the list
-        
-    categories_result = await db.execute(select(Category))
-    categories = categories_result.scalars().all()
+        template_name = "items/_items_list_partial.html"
         
     return templates.TemplateResponse(
         request=request, name=template_name, 
-        context={"request": request, "items_data": items_data, "categories": categories, "active_category": category}
+        context={
+            "request": request, 
+            "items_data": items, 
+            "categories": categories, 
+            "active_category": category
+        }
     )
 
 @router.get("/new", response_class=HTMLResponse)
@@ -106,9 +118,9 @@ async def search_items(request: Request, q: str = "", limit: int = 10, db: Async
     if not q:
         return HTMLResponse("")
     
-    query = select(FoodItem, Category).join(Category, FoodItem.category_id == Category.id)\
+    query = select(FoodItem).options(selectinload(FoodItem.category))\
                 .where(FoodItem.is_active == True, FoodItem.name.ilike(f"%{q}%")).limit(limit)
     result = await db.execute(query)
-    items_data = result.all()
+    items = result.scalars().all()
     
-    return templates.TemplateResponse(request=request, name="items/_search_results.html", context={"request": request, "items_data": items_data})
+    return templates.TemplateResponse(request=request, name="items/_search_results.html", context={"request": request, "items_data": items})
