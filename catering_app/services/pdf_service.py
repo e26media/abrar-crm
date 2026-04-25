@@ -5,8 +5,9 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from datetime import datetime
-import tempfile
 
+# Define the bronze/gold color from the brand template
+BRONZE_COLOR = colors.Color(0.54, 0.37, 0.24) # Approx #8b5e3c
 
 def number_to_words(number):
     """Simple converter for Indian currency format (Lakhs, Crores)."""
@@ -29,7 +30,7 @@ def number_to_words(number):
         if n > 0:
             res += units[n] + " "
         return res.strip()
-
+    
     if number == 0: return "Zero"
     
     res = ""
@@ -46,42 +47,94 @@ def number_to_words(number):
     
     return res.strip() + " Only"
 
+def draw_static_elements(canvas, doc):
+    """Draws logo, watermark, and footer on every page."""
+    canvas.saveState()
+    
+    # 1. Watermark (Centered)
+    watermark_path = os.path.join("catering_app", "static", "watermark.png")
+    if os.path.exists(watermark_path):
+        w_width, w_height = 4.5*inch, 4.5*inch
+        canvas.drawImage(
+            watermark_path, 
+            (A4[0] - w_width) / 2, 
+            (A4[1] - w_height) / 2, 
+            width=w_width, height=w_height, 
+            mask='auto'
+        )
+        
+    # 2. Logo (Top Centered)
+    logo_path = os.path.join("catering_app", "static", "logo.png")
+    if os.path.exists(logo_path):
+        l_width = 3.5*inch
+        l_height = 1.0*inch
+        canvas.drawImage(
+            logo_path, 
+            (A4[0] - l_width) / 2, 
+            A4[1] - l_height - 0.4*inch, 
+            width=l_width, height=l_height, 
+            mask='auto'
+        )
+        
+    # 3. Footer (Address & Email)
+    canvas.setStrokeColor(BRONZE_COLOR)
+    canvas.setLineWidth(0.5)
+    canvas.line(40, 70, A4[0] - 40, 70) # Horizontal line above footer
+    
+    canvas.setFont("Helvetica-Bold", 8.5)
+    canvas.setFillColor(colors.black)
+    footer_text1 = "Tilery Road, Mulihithlu, Bolar, Mangaluru 575 001, Ph: 91 9108659584, 91 9035341900"
+    footer_text2 = "Email: abrarcaterers@gmail.com"
+    
+    canvas.drawCentredString(A4[0]/2, 55, footer_text1)
+    canvas.setFont("Helvetica-Bold", 8.5)
+    canvas.drawCentredString(A4[0]/2, 42, footer_text2)
+    
+    canvas.restoreState()
+
 def generate_bill_pdf(bill, output_path: str):
-    doc = SimpleDocTemplate(output_path, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(
+        output_path, 
+        pagesize=A4, 
+        rightMargin=40, 
+        leftMargin=40, 
+        topMargin=150, # Space for logo
+        bottomMargin=100 # Space for footer
+    )
     styles = getSampleStyleSheet()
     
     # Custom Styles
-    brand_style = ParagraphStyle('Brand', parent=styles['Normal'], fontSize=32, alignment=1, fontName='Helvetica-Bold', leading=38)
-    address_style = ParagraphStyle('Address', parent=styles['Normal'], fontSize=9, alignment=1, spaceAfter=2)
-    est_bill_style = ParagraphStyle('EstBill', parent=styles['Normal'], fontSize=11, alignment=1, fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=10, underline=True)
+    est_bill_style = ParagraphStyle(
+        'EstBill', parent=styles['Normal'], 
+        fontSize=14, alignment=1, fontName='Helvetica-Bold', 
+        textColor=BRONZE_COLOR, spaceAfter=20, underline=True
+    )
     header_style = ParagraphStyle('Header', parent=styles['Normal'], fontSize=11, leading=14)
-    table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold', alignment=1)
+    table_header_style = ParagraphStyle(
+        'TableHeader', parent=styles['Normal'], 
+        fontSize=10, fontName='Helvetica-Bold', alignment=1,
+        textColor=colors.white
+    )
     normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=10, leading=12)
     right_style = ParagraphStyle('RightStyle', parent=styles['Normal'], fontSize=10, leading=12, alignment=2)
     bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontSize=10, leading=12, fontName='Helvetica-Bold')
     right_bold_style = ParagraphStyle('RightBold', parent=styles['Normal'], fontSize=10, leading=12, fontName='Helvetica-Bold', alignment=2)
+    bronze_bold_style = ParagraphStyle('BronzeBold', parent=bold_style, textColor=BRONZE_COLOR)
 
     elements = []
 
-    # Header: Brand & Contact
-    logo_path = os.path.join("catering_app", "static", "logo.png")
-    if os.path.exists(logo_path):
-        img = Image(logo_path, width=1.5*inch, height=1.5*inch)
-        img.hAlign = 'CENTER'
-        elements.append(img)
-    else:
-        elements.append(Paragraph("ABRAR", brand_style))
-    elements.append(Paragraph("Tilery Road, Mulihithliu, Bolar, Mangalore - 575001. MOB - 9108659584, 9035341900", address_style))
+    # Title
     elements.append(Paragraph("ESTIMATED BILL", est_bill_style))
     
     # Bill To & Date
     bill_date = bill.generated_at.strftime("%d/%m/%Y")
     header_table = Table([
         [Paragraph(f"<b>To,</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;{bill.customer_name or ''}", header_style), 
-         Paragraph(f"DATE : {bill_date}", ParagraphStyle('DateStyle', parent=styles['Normal'], fontSize=11, alignment=2))]
-    ], colWidths=[4.5*inch, 2*inch])
+         Paragraph(f"DATE : {bill_date}", ParagraphStyle('DateStyle', parent=styles['Normal'], fontSize=11, alignment=2, fontName='Helvetica-Bold'))]
+    ], colWidths=[4.2*inch, 2*inch])
+    header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
     elements.append(header_table)
-    elements.append(Spacer(1, 0.1*inch))
+    elements.append(Spacer(1, 0.2*inch))
 
     # Table Header
     table_data = [
@@ -108,12 +161,11 @@ def generate_bill_pdf(bill, output_path: str):
         date_str, venue_str, event_str = key
         group_discount = 0
         
-        # 1. Add all particulars for this event group
         for i, item in enumerate(items):
             row = [
                 Paragraph(str(si) if i == 0 else "", normal_style),
                 Paragraph(date_str if i == 0 else "", normal_style),
-                Paragraph(event_str if i == 0 else "", bold_style),
+                Paragraph(event_str if i == 0 else "", bronze_bold_style),
                 Paragraph(venue_str if i == 0 else "", normal_style),
                 Paragraph(item.particulars or "", normal_style),
                 Paragraph(f"{item.amount:,.0f}" if item.amount else "0", right_style)
@@ -122,7 +174,6 @@ def generate_bill_pdf(bill, output_path: str):
             total_amount_sum += item.amount
             group_discount += (item.discount_amount or 0)
             
-        # 2. Add the total discount for this event group at the bottom of the group
         if group_discount > 0:
             table_data.append([
                 "", "", "", "", 
@@ -132,11 +183,11 @@ def generate_bill_pdf(bill, output_path: str):
             total_amount_sum -= group_discount
 
     # Footers
-    table_data.append(["", "", "", "", Paragraph("<b>TOTAL</b>", bold_style), Paragraph(f"<b>{int(total_amount_sum):,}</b>", right_bold_style)])
+    table_data.append(["", "", "", "", Paragraph("<b>TOTAL</b>", bronze_bold_style), Paragraph(f"<b>{int(total_amount_sum):,}</b>", right_bold_style)])
     table_data.append(["", "", "", "", Paragraph("<b>ADVANCE RECEIVED</b>", bold_style), Paragraph(f"<b>{int(bill.advance_payment):,}</b>", right_bold_style)])
     
     balance = max(0, total_amount_sum - bill.advance_payment)
-    table_data.append(["", "", "", "", Paragraph("<b>TOTAL BALANCE AMOUNT</b>", ParagraphStyle('LargeBold', parent=bold_style, fontSize=11)), Paragraph(f"<b>{int(balance):,}</b>", ParagraphStyle('LargeBoldRight', parent=right_bold_style, fontSize=11))])
+    table_data.append(["", "", "", "", Paragraph("<b>TOTAL BALANCE AMOUNT</b>", ParagraphStyle('LargeBold', parent=bronze_bold_style, fontSize=11)), Paragraph(f"<b>{int(balance):,}</b>", ParagraphStyle('LargeBoldRight', parent=right_bold_style, fontSize=11))])
     
     # Amount in words
     words = number_to_words(int(balance))
@@ -147,7 +198,8 @@ def generate_bill_pdf(bill, output_path: str):
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     
     main_table.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('GRID', (0,0), (-1,-1), 0.5, BRONZE_COLOR),
+        ('BACKGROUND', (0,0), (-1,0), BRONZE_COLOR),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('ALIGN', (0,0), (0,-1), 'CENTER'),
         ('ALIGN', (1,0), (1,-1), 'CENTER'),
@@ -163,6 +215,7 @@ def generate_bill_pdf(bill, output_path: str):
     
     elements.append(Paragraph("Yours faithfully,", ParagraphStyle('Right', parent=styles['Normal'], alignment=2, rightIndent=20)))
     elements.append(Spacer(1, 0.1*inch))
-    elements.append(Paragraph("<b>For ABRAR Catering Service</b>", ParagraphStyle('RightBold', parent=styles['Normal'], alignment=2, rightIndent=20)))
+    elements.append(Paragraph(f"<b>For <font color='#8b5e3c'>ABRAR Catering Service</font></b>", ParagraphStyle('RightBold', parent=styles['Normal'], alignment=2, rightIndent=20)))
 
-    doc.build(elements)
+    # Build PDF with static elements drawer
+    doc.build(elements, onFirstPage=draw_static_elements, onLaterPages=draw_static_elements)
